@@ -1333,7 +1333,7 @@ async function sendMessage(){
   if(!state.currentChat||!canWriteHere())return;
   const text=inputEl.value.trim();if(!text)return;
   const replyTo=state.replyTo?.id||null;
-  inputEl.value='';inputEl.style.height='auto';$('#btnSend').disabled=true;
+  inputEl.value='';inputEl.style.height='auto'
   state.replyTo=null;renderReplyBar();$('#emojiPanel').classList.remove('open');
   await sendOptimistic({content:text,message_type:'text',reply_to:replyTo});
 }

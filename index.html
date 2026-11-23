@@ -1292,7 +1292,6 @@ async function sendOptimistic(partial){
   };
   state.messages.push(optimistic);
   state.pending[tid]=true;
-  // превью
   updateChatPreview(optimistic);
   renderMessages();scrollToBottom();
 
@@ -1312,14 +1311,12 @@ async function sendOptimistic(partial){
     };
     const{data,error}=await sb.from('messages').insert(insertPayload).select('*').single();
     if(error)throw error;
-    // Заменяем tmp на реальное
     const i=state.messages.findIndex(x=>x.id===tid);
     if(i>=0)state.messages[i]=data; else state.messages.push(data);
     delete state.pending[tid];
     renderMessages();scrollToBottom();
     return data;
   }catch(err){
-    // Удаляем tmp при ошибке
     const i=state.messages.findIndex(x=>x.id===tid);
     if(i>=0)state.messages.splice(i,1);
     delete state.pending[tid];
@@ -1330,13 +1327,37 @@ async function sendOptimistic(partial){
 }
 
 async function sendMessage(){
-  if(!state.currentChat||!canWriteHere())return;
+  if(!state.currentChat)return;
   const text=inputEl.value.trim();if(!text)return;
   const replyTo=state.replyTo?.id||null;
-  inputEl.value='';inputEl.style.height='auto'
+  inputEl.value='';inputEl.style.height='auto';
   state.replyTo=null;renderReplyBar();$('#emojiPanel').classList.remove('open');
   await sendOptimistic({content:text,message_type:'text',reply_to:replyTo});
+  const btn=$('#btnSend');if(btn)btn.disabled=false;
 }
+
+/* Авто-кнопка удаления на каждом своём сообщении */
+async function deleteMsg(id){
+  if(!id||!confirm('Удалить сообщение?'))return;
+  const idx=state.messages.findIndex(m=>String(m.id)===String(id));
+  if(idx>=0){state.messages.splice(idx,1);renderMessages();}
+  const{error}=await sb.from('messages').delete().eq('id',id);
+  if(error)toast('Ошибка удаления: '+error.message);
+  else toast('Сообщение удалено');
+}
+setInterval(()=>{
+  document.querySelectorAll('.msg-group.out').forEach((g,idx)=>{
+    if(g.querySelector('.del-btn-auto'))return;
+    const outMsgs=state.messages.filter(m=>m.sender_id===state.user?.id);
+    const m=outMsgs[idx];if(!m)return;
+    const b=document.createElement('button');
+    b.className='del-btn-auto';b.textContent='🗑️';
+    b.style.cssText='font-size:12px;opacity:.65;padding:0 4px;';
+    b.onclick=(e)=>{e.stopPropagation();deleteMsg(m.id);};
+    const meta=g.querySelector('.msg-meta');
+    if(meta)meta.appendChild(b);
+  });
+},600);
 
 /* ===== FILES (Optimistic) ===== */
 $('#btnAttach').onclick=()=>$('#fileInput').click();

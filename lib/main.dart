@@ -171,7 +171,7 @@ class _AuthScreenState extends State<AuthScreen> {
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
   @override
-  State<ChatListScreen> createState() => _ChatListScreenState();
+  State<ChatListScreen> createState() => _ChatListScreen();
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {

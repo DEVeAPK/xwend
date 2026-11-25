@@ -1424,8 +1424,8 @@ child: CachedNetworkImage(
 imageUrl: msg['file_url'] ?? '',
 width: 220,
 fit: BoxFit.cover,
-placeholder: (, __) => const SizedBox(width: 220, height: 160, child: Center(child: CircularProgressIndicator())),
-errorWidget: (, __, ___) => const Icon(Icons.broken_image),
+placeholder: (c1, c2) => const SizedBox(width: 220, height: 160, child: Center(child: CircularProgressIndicator())),
+errorWidget: (c1, c2, c3) => const Icon(Icons.broken_image),
 ),
 );
 break;
@@ -1517,34 +1517,39 @@ final String userId;
 final Map<String, dynamic> user;
 const OtherProfileScreen({super.key, required this.userId, required this.user});
 @override
-State createState() => _OtherProfileScreenState();
+State createState() => OtherProfileScreenState();
 }
-class _OtherProfileScreenState extends State {
-final _sb = Supabase.instance.client;
-List<Map<String, dynamic>> _gifts = [];
-List<Map<String, dynamic>> _catalog = [];
+class OtherProfileScreenState extends State {
+final msb = Supabase.instance.client;
+List<Map<String, dynamic>> mgifts = [];
+List<Map<String, dynamic>> mcatalog = [];
 @override
 void initState() {
 super.initState();
-_load();
+mload();
 }
-Future _load() async {
-final g = await _sb.from('user_gifts').select('').eq('recipient_id', widget.userId).eq('is_hidden', false).order('created_at', ascending: false).limit(30);
-final c = await _sb.from('gifts').select('');
-if (mounted) setState(() { _gifts = List<Map<String, dynamic>>.from(g); _catalog = List<Map<String, dynamic>>.from(c); });
+Future mload() async {
+final g = await msb.from('user_gifts').select('').eq('recipient_id', widget.userId).eq('is_hidden', false).order('created_at', ascending: false).limit(30);
+final c = await msb.from('gifts').select('');
+if (mounted) {
+setState(() {
+mgifts = List<Map<String, dynamic>>.from(g);
+mcatalog = List<Map<String, dynamic>>.from(c);
+});
 }
-Future _openDirectChat() async {
+}
+Future mopenDirectChat() async {
 try {
-final r = await _sb.rpc('get_or_create_direct_chat', params: {'other_user_id': widget.userId});
+final r = await msb.rpc('get_or_create_direct_chat', params: {'other_user_id': widget.userId});
 final id = r as String;
-final chats = await _sb.from('chats').select('*').eq('id', id).single();
-final allParts = await _sb.from('chat_participants').select('user_id, role').eq('chat_id', id);
-final me = sb.auth.currentUser!.id;
+final chats = await msb.from('chats').select('*').eq('id', id).single();
+final allParts = await msb.from('chat_participants').select('user_id, role').eq('chat_id', id);
+final me = msb.auth.currentUser!.id;
 final myRole = (allParts as List).firstWhere((p) => p['user_id'] == me, orElse: () => {'role': 'member'})['role'];
 final c = Map<String, dynamic>.from(chats);
 c['other'] = widget.user;
 c['my_role'] = myRole;
-if (mounted) Navigator.pushReplacement(context, CupertinoPageRoute(builder: (_) => ChatScreen(chat: c)));
+if (mounted) Navigator.pushReplacement(context, CupertinoPageRoute(builder: (ctx) => ChatScreen(chat: c)));
 } catch (e) {
 if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
 }
@@ -1579,29 +1584,34 @@ if ((widget.user['bio'] ?? '').toString().isNotEmpty)
 Padding(padding: const EdgeInsets.only(top: 10), child: Text(widget.user['bio'], style: TextStyle(color: t.muted), textAlign: TextAlign.center)),
 const SizedBox(height: 16),
 Row(children: [
-Expanded(child: FilledButton(style: FilledButton.styleFrom(backgroundColor: t.accent), onPressed: _openDirectChat, child: const Text('Написать'))),
+Expanded(child: FilledButton(style: FilledButton.styleFrom(backgroundColor: t.accent), onPressed: mopenDirectChat, child: const Text('Написать'))),
 const SizedBox(width: 8),
-Expanded(child: OutlinedButton(onPressed: () async {
+Expanded(
+child: OutlinedButton(
+onPressed: () async {
 await GiftShopDialog.open(context, recipientId: widget.userId, recipientName: widget.user['name'] ?? widget.user['username'] ?? '');
-_load();
-}, child: const Text('🎁 Подарить'))),
+mload();
+},
+child: const Text('🎁 Подарить'),
+),
+),
 ]),
 ]),
 ),
 const SizedBox(height: 16),
-Align(alignment: Alignment.centerLeft, child: Text('Подарки (${_gifts.length})', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700))),
+Align(alignment: Alignment.centerLeft, child: Text('Подарки (${mgifts.length})', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700))),
 const SizedBox(height: 8),
-if (_gifts.isEmpty)
+if (mgifts.isEmpty)
 Padding(padding: const EdgeInsets.all(20), child: Text('Подарков пока нет', style: TextStyle(color: t.muted)))
 else
 GridView.builder(
 shrinkWrap: true,
 physics: const NeverScrollableScrollPhysics(),
 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 105, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
-itemCount: gifts.length,
-itemBuilder: (_, i) {
-final g = _gifts[i];
-final gift = _catalog.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
+itemCount: mgifts.length,
+itemBuilder: (ctx, i) {
+final g = mgifts[i];
+final gift = mcatalog.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
 return GlassBox(
 theme: t,
 blur: false,
@@ -1631,26 +1641,31 @@ class GroupScreen extends StatefulWidget {
 final Map<String, dynamic> chat;
 const GroupScreen({super.key, required this.chat});
 @override
-State createState() => _GroupScreenState();
+State createState() => GroupScreenState();
 }
-class _GroupScreenState extends State {
-final _sb = Supabase.instance.client;
-List<Map<String, dynamic>> _members = [];
-Map<String, dynamic> _chat = {};
+class GroupScreenState extends State {
+final msb = Supabase.instance.client;
+List<Map<String, dynamic>> mmembers = [];
+Map<String, dynamic> mchat = {};
 @override
 void initState() {
 super.initState();
-_chat = Map.of(widget.chat);
-_load();
+mchat = Map.of(widget.chat);
+mload();
 }
-Future _load() async {
-final parts = await _sb.from('chat_participants').select('user_id, role, profiles:user_id(id, username, name, avatar_color, avatar_url)').eq('chat_id', _chat['id']);
-final c = await _sb.from('chats').select('*').eq('id', _chat['id']).single();
-if (mounted) setState(() { _members = List<Map<String, dynamic>>.from(parts); _chat = Map<String, dynamic>.from(c); });
+Future mload() async {
+final parts = await msb.from('chat_participants').select('user_id, role, profiles:user_id(id, username, name, avatar_color, avatar_url)').eq('chat_id', mchat['id']);
+final c = await msb.from('chats').select('*').eq('id', mchat['id']).single();
+if (mounted) {
+setState(() {
+mmembers = List<Map<String, dynamic>>.from(parts);
+mchat = Map<String, dynamic>.from(c);
+});
 }
-String get _myRole => _chat['my_role'] ?? 'member';
-bool get _canEdit => _myRole == 'owner' || _myRole == 'admin';
-bool get _isOwner => _myRole == 'owner';
+}
+String get mmyRole => mchat['my_role'] ?? 'member';
+bool get mcanEdit => mmyRole == 'owner' || mmyRole == 'admin';
+bool get misOwner => mmyRole == 'owner';
 @override
 Widget build(BuildContext context) {
 final t = themeCtl.theme;
@@ -1671,14 +1686,14 @@ blur: true,
 radius: BorderRadius.circular(28),
 padding: const EdgeInsets.all(20),
 child: Column(children: [
-AvatarView(name: _chat['title'], username: _chat['username'], url: _chat['avatar_url'], size: 88),
+AvatarView(name: mchat['title'], username: mchat['username'], url: mchat['avatar_url'], size: 88),
 const SizedBox(height: 12),
-Text(_chat['title'] ?? 'Без названия', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
-if (_chat['username'] != null) Text('@${_chat['username']}', style: TextStyle(color: t.accent)),
-Text(_chat['type'] == 'channel' ? 'Канал' : 'Группа', style: TextStyle(color: t.muted, fontSize: 12)),
+Text(mchat['title'] ?? 'Без названия', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
+if (mchat['username'] != null) Text('@${mchat['username']}', style: TextStyle(color: t.accent)),
+Text(mchat['type'] == 'channel' ? 'Канал' : 'Группа', style: TextStyle(color: t.muted, fontSize: 12)),
 const SizedBox(height: 16),
-if (_canEdit) SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: t.accent), onPressed: _editGroup, child: const Text('✏️ Редактировать'))),
-if (_isOwner)
+if (mcanEdit) SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: t.accent), onPressed: meditGroup, child: const Text('✏️ Редактировать'))),
+if (misOwner)
 Padding(
 padding: const EdgeInsets.only(top: 8),
 child: SizedBox(
@@ -1686,14 +1701,17 @@ width: double.infinity,
 child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
 onPressed: () async {
-if (!await _confirm('Удалить навсегда?')) return;
-try { await _sb.rpc('delete_chat', params: {'p_chat_id': chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch (_) {}
+if (!await mconfirm('Удалить навсегда?')) return;
+try {
+await msb.rpc('delete_chat', params: {'p_chat_id': mchat['id']});
+if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
+} catch (err) {}
 },
 child: const Text('🗑 Удалить'),
 ),
 ),
 ),
-if (!_isOwner)
+if (!misOwner)
 Padding(
 padding: const EdgeInsets.only(top: 8),
 child: SizedBox(
@@ -1701,8 +1719,11 @@ width: double.infinity,
 child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
 onPressed: () async {
-if (!await _confirm('Покинуть чат?')) return;
-try { await _sb.rpc('leave_chat', params: {'p_chat_id': chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch (_) {}
+if (!await mconfirm('Покинуть чат?')) return;
+try {
+await msb.rpc('leave_chat', params: {'p_chat_id': mchat['id']});
+if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
+} catch (err) {}
 },
 child: const Text('🚪 Покинуть'),
 ),
@@ -1711,9 +1732,9 @@ child: const Text('🚪 Покинуть'),
 ]),
 ),
 const SizedBox(height: 20),
-Text('Участники (${_members.length})', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700)),
+Text('Участники (${mmembers.length})', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700)),
 const SizedBox(height: 8),
-..._members.map((m) {
+...mmembers.map((m) {
 final p = m['profiles'] ?? {};
 final role = m['role'] ?? 'member';
 final roleLabel = role == 'owner' ? 'Владелец' : role == 'admin' ? 'Админ' : 'Участник';
@@ -1749,14 +1770,14 @@ child: Text(roleLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w70
 ),
 );
 }
-Future _editGroup() async {
+Future meditGroup() async {
 final t = themeCtl.theme;
-final title = TextEditingController(text: _chat['title'] ?? '');
-final uname = TextEditingController(text: _chat['username'] ?? '');
-final desc = TextEditingController(text: chat['description'] ?? '');
+final title = TextEditingController(text: mchat['title'] ?? '');
+final uname = TextEditingController(text: mchat['username'] ?? '');
+final desc = TextEditingController(text: mchat['description'] ?? '');
 showDialog(
 context: context,
-builder: (_) => AlertDialog(
+builder: (ctx) => AlertDialog(
 backgroundColor: t.cardSolid,
 title: const Text('Редактировать'),
 content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -1765,15 +1786,15 @@ TextField(controller: uname, decoration: const InputDecoration(labelText: '@user
 TextField(controller: desc, maxLines: 3, decoration: const InputDecoration(labelText: 'Описание')),
 ]),
 actions: [
-TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
 FilledButton(
 style: FilledButton.styleFrom(backgroundColor: t.accent),
 onPressed: () async {
-Navigator.pop(context);
+Navigator.pop(ctx);
 try {
-await _sb.rpc('update_chat_info', params: {'p_chat_id': _chat['id'], 'p_title': title.text.trim(), 'p_description': desc.text.trim(), 'p_username': uname.text.trim()});
-load();
-} catch (_) {}
+await msb.rpc('update_chat_info', params: {'p_chat_id': mchat['id'], 'p_title': title.text.trim(), 'p_description': desc.text.trim(), 'p_username': uname.text.trim()});
+mload();
+} catch (err) {}
 },
 child: const Text('Сохранить'),
 ),
@@ -1781,14 +1802,14 @@ child: const Text('Сохранить'),
 ),
 );
 }
-Future confirm(String text) async {
+Future mconfirm(String text) async {
 final r = await showDialog(
 context: context,
-builder: (_) => AlertDialog(
+builder: (ctx) => AlertDialog(
 content: Text(text),
 actions: [
-TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Нет')),
-FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Да')),
+TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Нет')),
+FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Да')),
 ],
 ),
 );
@@ -1798,28 +1819,31 @@ return r ?? false;
 class SearchTab extends StatefulWidget {
 const SearchTab({super.key});
 @override
-State createState() => _SearchTabState();
+State createState() => SearchTabState();
 }
-class _SearchTabState extends State {
-final _sb = Supabase.instance.client;
-final _q = TextEditingController();
-List<Map<String, dynamic>> _results = [];
-Timer? _deb;
-bool _loading = false;
+class SearchTabState extends State {
+final msb = Supabase.instance.client;
+final mq = TextEditingController();
+List<Map<String, dynamic>> mresults = [];
+Timer? mdeb;
+bool mloading = false;
 @override
 void dispose() {
-_q.dispose();
-_deb?.cancel();
+mq.dispose();
+mdeb?.cancel();
 super.dispose();
 }
-Future _run(String q) async {
-if (q.trim().isEmpty) { setState(() => _results = []); return; }
-setState(() => _loading = true);
+Future mrun(String q) async {
+if (q.trim().isEmpty) {
+setState(() => mresults = []);
+return;
+}
+setState(() => mloading = true);
 try {
-final r = await _sb.rpc('global_search', params: {'p_query': q.trim()});
-if (mounted) setState(() => results = List<Map<String, dynamic>>.from(r));
-} catch (_) {} finally {
-if (mounted) setState(() => _loading = false);
+final r = await msb.rpc('global_search', params: {'p_query': q.trim()});
+if (mounted) setState(() => mresults = List<Map<String, dynamic>>.from(r));
+} catch (err) {} finally {
+if (mounted) setState(() => mloading = false);
 }
 }
 @override
@@ -1834,24 +1858,27 @@ blur: true,
 radius: BorderRadius.circular(22),
 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
 child: TextField(
-controller: _q,
+controller: mq,
 style: TextStyle(color: t.text),
 decoration: const InputDecoration(hintText: 'Поиск людей, групп, каналов', border: InputBorder.none, icon: Icon(Icons.search_rounded)),
-onChanged: (v) { _deb?.cancel(); _deb = Timer(const Duration(milliseconds: 300), () => _run(v)); },
+onChanged: (v) {
+mdeb?.cancel();
+mdeb = Timer(const Duration(milliseconds: 300), () => mrun(v));
+},
 ),
 ),
 ),
 Expanded(
-child: _loading
+child: mloading
 ? Center(child: CircularProgressIndicator(color: t.accent))
-: _results.isEmpty
+: mresults.isEmpty
 ? Center(child: Text('Введите @username или название', style: TextStyle(color: t.muted)))
 : ListView.builder(
 padding: const EdgeInsets.only(bottom: 95),
 physics: const BouncingScrollPhysics(),
-itemCount: results.length,
-itemBuilder: (_, i) {
-final r = results[i];
+itemCount: mresults.length,
+itemBuilder: (ctx, i) {
+final r = mresults[i];
 final isUser = r['kind'] == 'user';
 return Padding(
 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
@@ -1871,13 +1898,13 @@ trailing: isUser
 style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(horizontal: 12)),
 onPressed: () async {
 try {
-await sb.rpc('join_public_chat', params: {'p_chat_id': r['id']});
+await msb.rpc('join_public_chat', params: {'p_chat_id': r['id']});
 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Вы вступили')));
-} catch (_) {}
+} catch (err) {}
 },
 child: const Text('Вступить'),
 ),
-onTap: isUser ? () => Navigator.push(context, CupertinoPageRoute(builder: (_) => OtherProfileScreen(userId: r['id'], user: r))) : null,
+onTap: isUser ? () => Navigator.push(context, CupertinoPageRoute(builder: (c2) => OtherProfileScreen(userId: r['id'], user: r))) : null,
 ),
 ),
 );

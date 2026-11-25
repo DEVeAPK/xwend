@@ -723,7 +723,7 @@ if (_savedId != null) return;
 try {
 final r = await _sb.rpc('get_or_create_saved_chat');
 savedId = r as String;
-} catch () {}
+} catch (_) {}
 }
 Future _load() async {
 final me = _sb.auth.currentUser!.id;
@@ -762,7 +762,7 @@ if (tb == null) return -1;
 return DateTime.parse(tb).compareTo(DateTime.parse(ta));
 });
 if (mounted) setState(() { _chats = list; loading = false; });
-} catch () {
+} catch (_) {
 if (mounted) setState(() => _loading = false);
 }
 }
@@ -782,7 +782,7 @@ default: return m['content'] ?? '';
 }
 }
 Future openChat(Map<String, dynamic> c) async {
-await Navigator.of(context).push(CupertinoPageRoute(builder: () => ChatScreen(chat: c)));
+await Navigator.of(context).push(CupertinoPageRoute(builder: (_) => ChatScreen(chat: c)));
 _load();
 }
 void openContext(Map<String, dynamic> c) {
@@ -792,7 +792,7 @@ showModalBottomSheet(
 context: context,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: () => SafeArea(
+builder: (_) => SafeArea(
 child: Column(mainAxisSize: MainAxisSize.min, children: [
 ListTile(
 title: Text(name(c), style: TextStyle(fontWeight: FontWeight.w700, color: t.text)),
@@ -800,14 +800,14 @@ subtitle: Text(c['username'] != null ? '@${c['username']}' : '', style: TextStyl
 ),
 const Divider(height: 1),
 if (c['type'] == 'direct' && c['other'] != null) ...[
-ListTile(leading: const Icon(Icons.person_outline), title: const Text('Открыть профиль'), onTap: () { Navigator.pop(context); Navigator.of(context).push(CupertinoPageRoute(builder: () => OtherProfileScreen(userId: c['other']['id'], user: c['other']))); }),
+ListTile(leading: const Icon(Icons.person_outline), title: const Text('Открыть профиль'), onTap: () { Navigator.pop(context); Navigator.of(context).push(CupertinoPageRoute(builder: (_) => OtherProfileScreen(userId: c['other']['id'], user: c['other']))); }),
 ListTile(leading: const Icon(Icons.block), title: const Text('Заблокировать'), onTap: () async {
 Navigator.pop(context);
-try { await Supabase.instance.client.rpc('toggle_block', params: {'p_user_id': c['other']['id']}); } catch () {}
+try { await Supabase.instance.client.rpc('toggle_block', params: {'p_user_id': c['other']['id']}); } catch (_) {}
 }),
 ],
 if (c['type'] == 'group' || c['type'] == 'channel')
-ListTile(leading: const Icon(Icons.info_outline), title: const Text('Информация'), onTap: () { Navigator.pop(context); Navigator.push(context, CupertinoPageRoute(builder: () => GroupScreen(chat: c))); }),
+ListTile(leading: const Icon(Icons.info_outline), title: const Text('Информация'), onTap: () { Navigator.pop(context); Navigator.push(context, CupertinoPageRoute(builder: (_) => GroupScreen(chat: c))); }),
 ListTile(
 leading: const Icon(Icons.delete, color: Colors.redAccent),
 title: const Text('Удалить чат', style: TextStyle(color: Colors.redAccent)),
@@ -820,7 +820,7 @@ await Supabase.instance.client.rpc('delete_chat', params: {'p_chat_id': c['id']}
 await Supabase.instance.client.rpc('leave_chat', params: {'p_chat_id': c['id']});
 }
 load();
-} catch () {}
+} catch (_) {}
 },
 ),
 ]),
@@ -833,7 +833,7 @@ showModalBottomSheet(
 context: context,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: () => SafeArea(
+builder: (_) => SafeArea(
 child: Column(mainAxisSize: MainAxisSize.min, children: [
 ListTile(leading: const Icon(Icons.group_add), title: const Text('Новая группа'), onTap: () { Navigator.pop(context); _createChat('group'); }),
 ListTile(leading: const Icon(Icons.campaign), title: const Text('Новый канал'), onTap: () { Navigator.pop(context); _createChat('channel'); }),
@@ -847,7 +847,7 @@ final title = TextEditingController();
 final uname = TextEditingController();
 showDialog(
 context: context,
-builder: () => AlertDialog(
+builder: (_) => AlertDialog(
 backgroundColor: t.cardSolid,
 title: Text(type == 'group' ? 'Новая группа' : 'Новый канал'),
 content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -1057,7 +1057,7 @@ try {
 final data = await _sb.from('messages').select('*').eq('chat_id', chatId).order('created_at', ascending: true);
 if (mounted) setState(() { _messages = List<Map<String, dynamic>>.from(data); _loading = false; });
 scrollDown();
-} catch () {
+} catch (_) {
 if (mounted) setState(() => _loading = false);
 }
 }
@@ -1090,7 +1090,7 @@ final res = await _sb.from('messages').insert({
 }).select().single();
 final idx = _messages.indexWhere((m) => m['id'] == tid);
 if (idx >= 0 && mounted) setState(() => messages[idx] = Map<String, dynamic>.from(res));
-} catch () {
+} catch (_) {
 if (mounted) setState(() => _messages.removeWhere((m) => m['id'] == tid));
 } finally {
 _sending = false;
@@ -1100,7 +1100,7 @@ Future _deleteMessage(Map<String, dynamic> m) async {
 final idx = _messages.indexOf(m);
 if (idx < 0) return;
 setState(() => _messages.removeAt(idx));
-try { await sb.from('messages').delete().eq('id', m['id']); } catch () {
+try { await sb.from('messages').delete().eq('id', m['id']); } catch (_) {
 if (mounted) setState(() => _messages.insert(idx, m));
 }
 }
@@ -1187,7 +1187,7 @@ final res = await _sb.from('messages').insert({
 }).select().single();
 final idx = _messages.indexWhere((m) => m['id'] == tid);
 if (idx >= 0 && mounted) setState(() => messages[idx] = Map<String, dynamic>.from(res));
-} catch () {
+} catch (_) {
 if (mounted) setState(() => _messages.removeWhere((m) => m['id'] == tid));
 }
 }
@@ -1198,7 +1198,7 @@ showModalBottomSheet(
 context: context,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-builder: () => SafeArea(
+builder: (_) => SafeArea(
 child: Column(mainAxisSize: MainAxisSize.min, children: [
 ListTile(leading: const Icon(Icons.reply), title: const Text('Ответить'), onTap: () { Navigator.pop(context); setState(() => _replyTo = m); }),
 ListTile(leading: const Icon(Icons.delete, color: Colors.redAccent), title: const Text('Удалить', style: TextStyle(color: Colors.redAccent)), onTap: () { Navigator.pop(context); _deleteMessage(m); }),
@@ -1208,7 +1208,7 @@ ListTile(leading: const Icon(Icons.delete, color: Colors.redAccent), title: cons
 }
 void openChatInfo() {
 if (widget.chat['type'] == 'group' || widget.chat['type'] == 'channel') {
-Navigator.push(context, CupertinoPageRoute(builder: () => GroupScreen(chat: widget.chat)));
+Navigator.push(context, CupertinoPageRoute(builder: (_) => GroupScreen(chat: widget.chat)));
 } else if (widget.chat['type'] == 'direct' && widget.chat['other'] != null) {
 Navigator.push(context, CupertinoPageRoute(builder: (_) => OtherProfileScreen(userId: widget.chat['other']['id'], user: widget.chat['other'])));
 }
@@ -1277,7 +1277,7 @@ physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
 cacheExtent: 800,
 addAutomaticKeepAlives: true,
 itemCount: messages.length,
-itemBuilder: (, i) {
+itemBuilder: (_, i) {
 final m = _messages[i];
 final out = m['sender_id'] == me;
 return RepaintBoundary(
@@ -1357,7 +1357,7 @@ child: TextField(
 controller: input,
 style: TextStyle(color: t.text),
 decoration: const InputDecoration(hintText: 'Сообщение...', border: InputBorder.none),
-onSubmitted: () => _send(),
+onSubmitted: (_) => _send(),
 ),
 ),
 IconButton(icon: Icon(Icons.photo_camera_outlined, color: t.muted), onPressed: () => _sendMedia(fromCamera: false)),
@@ -1388,7 +1388,7 @@ child: GridView.builder(
 padding: const EdgeInsets.all(8),
 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8),
 itemCount: emojis.length,
-itemBuilder: (, i) => InkWell(
+itemBuilder: (_, i) => InkWell(
 onTap: () { _input.text += _emojis[i]; setState(() {}); },
 child: Center(child: Text(_emojis[i], style: const TextStyle(fontSize: 24))),
 ),
@@ -1544,7 +1544,7 @@ final myRole = (allParts as List).firstWhere((p) => p['user_id'] == me, orElse: 
 final c = Map<String, dynamic>.from(chats);
 c['other'] = widget.user;
 c['my_role'] = myRole;
-if (mounted) Navigator.pushReplacement(context, CupertinoPageRoute(builder: () => ChatScreen(chat: c)));
+if (mounted) Navigator.pushReplacement(context, CupertinoPageRoute(builder: (_) => ChatScreen(chat: c)));
 } catch (e) {
 if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
 }
@@ -1599,7 +1599,7 @@ shrinkWrap: true,
 physics: const NeverScrollableScrollPhysics(),
 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 105, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
 itemCount: gifts.length,
-itemBuilder: (, i) {
+itemBuilder: (_, i) {
 final g = _gifts[i];
 final gift = _catalog.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
 return GlassBox(
@@ -1687,7 +1687,7 @@ child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
 onPressed: () async {
 if (!await _confirm('Удалить навсегда?')) return;
-try { await _sb.rpc('delete_chat', params: {'p_chat_id': chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch () {}
+try { await _sb.rpc('delete_chat', params: {'p_chat_id': chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch (_) {}
 },
 child: const Text('🗑 Удалить'),
 ),
@@ -1702,7 +1702,7 @@ child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
 onPressed: () async {
 if (!await _confirm('Покинуть чат?')) return;
-try { await _sb.rpc('leave_chat', params: {'p_chat_id': chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch () {}
+try { await _sb.rpc('leave_chat', params: {'p_chat_id': chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch (_) {}
 },
 child: const Text('🚪 Покинуть'),
 ),
@@ -1756,7 +1756,7 @@ final uname = TextEditingController(text: _chat['username'] ?? '');
 final desc = TextEditingController(text: chat['description'] ?? '');
 showDialog(
 context: context,
-builder: () => AlertDialog(
+builder: (_) => AlertDialog(
 backgroundColor: t.cardSolid,
 title: const Text('Редактировать'),
 content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -1773,7 +1773,7 @@ Navigator.pop(context);
 try {
 await _sb.rpc('update_chat_info', params: {'p_chat_id': _chat['id'], 'p_title': title.text.trim(), 'p_description': desc.text.trim(), 'p_username': uname.text.trim()});
 load();
-} catch () {}
+} catch (_) {}
 },
 child: const Text('Сохранить'),
 ),
@@ -1784,7 +1784,7 @@ child: const Text('Сохранить'),
 Future confirm(String text) async {
 final r = await showDialog(
 context: context,
-builder: () => AlertDialog(
+builder: (_) => AlertDialog(
 content: Text(text),
 actions: [
 TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Нет')),
@@ -1818,7 +1818,7 @@ setState(() => _loading = true);
 try {
 final r = await _sb.rpc('global_search', params: {'p_query': q.trim()});
 if (mounted) setState(() => results = List<Map<String, dynamic>>.from(r));
-} catch () {} finally {
+} catch (_) {} finally {
 if (mounted) setState(() => _loading = false);
 }
 }
@@ -1850,7 +1850,7 @@ child: _loading
 padding: const EdgeInsets.only(bottom: 95),
 physics: const BouncingScrollPhysics(),
 itemCount: results.length,
-itemBuilder: (, i) {
+itemBuilder: (_, i) {
 final r = results[i];
 final isUser = r['kind'] == 'user';
 return Padding(
@@ -1873,11 +1873,11 @@ onPressed: () async {
 try {
 await sb.rpc('join_public_chat', params: {'p_chat_id': r['id']});
 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Вы вступили')));
-} catch () {}
+} catch (_) {}
 },
 child: const Text('Вступить'),
 ),
-onTap: isUser ? () => Navigator.push(context, CupertinoPageRoute(builder: () => OtherProfileScreen(userId: r['id'], user: r))) : null,
+onTap: isUser ? () => Navigator.push(context, CupertinoPageRoute(builder: (_) => OtherProfileScreen(userId: r['id'], user: r))) : null,
 ),
 ),
 );
@@ -1991,14 +1991,14 @@ child: const Text('Сохранить'),
 ),
 );
 }
-void openThemeSettings() {
+void _openThemeSettings() {
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
 isScrollControlled: true,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: () => StatefulBuilder(
+builder: (_) => StatefulBuilder(
 builder: (context, setLocal) => Padding(
 padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
 child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2057,13 +2057,13 @@ const SizedBox(height: 20),
 ),
 );
 }
-void openExtraSettings() {
+void _openExtraSettings() {
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: () => StatefulBuilder(
+builder: (_) => StatefulBuilder(
 builder: (context, setLocal) => SafeArea(
 child: Padding(
 padding: const EdgeInsets.all(16),

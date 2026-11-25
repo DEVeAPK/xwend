@@ -1332,6 +1332,7 @@ class ChatScreenState extends State<ChatScreen> {
   final player = AudioPlayer();
   List<Map<String, dynamic>> messagesList = [];
   RealtimeChannel? chChat;
+  RealtimeChannel? chTyping;
   bool loading = true;
   bool sending = false;
   Map<String, dynamic>? replyTo;
@@ -1339,6 +1340,10 @@ class ChatScreenState extends State<ChatScreen> {
   bool recording = false;
   int recSecs = 0;
   Timer? recTimer;
+  
+  final Map<String, Timer> _typingTimers = {};
+  final Set<String> _typingUsers = {};
+  DateTime _lastTypingSent = DateTime.fromMillisecondsSinceEpoch(0);
 
   String get chatId => widget.chat['id'] as String;
   String get me => sb.auth.currentUser!.id;
@@ -1358,6 +1363,7 @@ class ChatScreenState extends State<ChatScreen> {
       if (mounted) setState(() {});
     });
     loadMessages();
+    
     chChat = sb.channel('chat-' + chatId)
       ..onPostgresChanges(
         event: PostgresChangeEvent.insert,
@@ -1382,17 +1388,62 @@ class ChatScreenState extends State<ChatScreen> {
         },
       )
       ..subscribe();
+
+    chTyping = sb.channel('typing:$chatId')
+      ..onBroadcast(
+        event: 'typing',
+        callback: (payload) {
+          final userId = payload['user_id'] as String?;
+          final userName = payload['name'] as String? ?? 'Кто-то';
+          if (userId == null || userId == me) return;
+
+          if (mounted) {
+            setState(() {
+              _typingUsers.add(userName);
+            });
+          }
+
+          _typingTimers[userId]?.cancel();
+          _typingTimers[userId] = Timer(const Duration(seconds: 3), () {
+            if (mounted) {
+              setState(() {
+                _typingUsers.remove(userName);
+              });
+            }
+            _typingTimers.remove(userId);
+          });
+        },
+      )
+      ..subscribe();
   }
 
   @override
   void dispose() {
     chChat?.unsubscribe();
+    chTyping?.unsubscribe();
     inputCtrl.dispose();
     scrollCtrl.dispose();
     recTimer?.cancel();
     recorder.dispose();
     player.dispose();
+    for (var t in _typingTimers.values) {
+      t.cancel();
+    }
     super.dispose();
+  }
+
+  void _sendTypingSignal() {
+    final now = DateTime.now();
+    if (now.difference(_lastTypingSent).inSeconds < 2) return;
+    _lastTypingSent = now;
+
+    chTyping?.sendBroadcastMessage(
+      event: 'typing',
+      payload: {
+        'user_id': me,
+        'name': sb.auth.currentUser?.userMetadata?['name'] ?? 'Собеседник',
+      },
+    );
   }
 
   Future<void> loadMessages() async {
@@ -1707,18 +1758,26 @@ class ChatScreenState extends State<ChatScreen> {
                               chatTitle,
                               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: t.text),
                             ),
-                            Text(
-                              widget.chat['type'] == 'direct'
-                                  ? (widget.chat['other']?['username'] != null
-                                      ? '@' + widget.chat['other']['username'].toString()
-                                      : '')
-                                  : widget.chat['username'] != null
-                                      ? '@' + widget.chat['username'].toString()
-                                      : (widget.chat['type'] == 'channel'
-                                          ? 'Канал'
-                                          : (widget.chat['type'] == 'saved' ? 'Личное облако' : 'Группа')),
-                              style: TextStyle(fontSize: 11.5, color: t.muted),
-                            ),
+                            if (_typingUsers.isNotEmpty)
+                              Text(
+                                _typingUsers.length == 1
+                                    ? '${_typingUsers.first} печатает...'
+                                    : '${_typingUsers.length} человека печатают...',
+                                style: TextStyle(fontSize: 11.5, color: t.accent, fontStyle: FontStyle.italic),
+                              )
+                            else
+                              Text(
+                                widget.chat['type'] == 'direct'
+                                    ? (widget.chat['other']?['username'] != null
+                                        ? '@' + widget.chat['other']['username'].toString()
+                                        : '')
+                                    : widget.chat['username'] != null
+                                        ? '@' + widget.chat['username'].toString()
+                                        : (widget.chat['type'] == 'channel'
+                                            ? 'Канал'
+                                            : (widget.chat['type'] == 'saved' ? 'Личное облако' : 'Группа')),
+                                style: TextStyle(fontSize: 11.5, color: t.muted),
+                              ),
                           ]),
                         ]),
                       ),
@@ -1847,6 +1906,7 @@ class ChatScreenState extends State<ChatScreen> {
                                         hintText: 'Сообщение...',
                                         border: InputBorder.none,
                                       ),
+                                      onChanged: (v) => _sendTypingSignal(),
                                       onSubmitted: (v) => sendMsg(),
                                     ),
                                   ),

@@ -761,7 +761,7 @@ class _ChatsTabState extends State<ChatsTab> {
     return c['title'] ?? 'Без названия';
   }
 
-  String _preview(Map<String, dynamic> m) {
+  String _preview(Map<String, dynamic>? m) {
     if (m == null) return 'Заметки, файлы, ГС и пересланные';
     switch (m['message_type']) {
       case 'image': return '📷 Фото';

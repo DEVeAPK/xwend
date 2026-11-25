@@ -817,7 +817,7 @@ const ChatScreen({super.key, required this.chat});
 @override
 State createState() => ChatScreenState();
 }
-class ChatScreenState extends State {
+class ChatScreenState extends State<ChatScreen> {
 final sb = Supabase.instance.client;
 final inputCtrl = TextEditingController();
 final scrollCtrl = ScrollController();

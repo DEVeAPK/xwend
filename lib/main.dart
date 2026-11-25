@@ -691,7 +691,7 @@ labelStyle: TextStyle(color: t.muted),
 class ChatsTab extends StatefulWidget {
 const ChatsTab({super.key});
 @override
-State createState() => _ChatsTabState();
+State<ChatsTab> createState() => ChatsTabState();
 }
 class ChatsTabState extends State {
 final csb = Supabase.instance.client;
@@ -1329,7 +1329,7 @@ padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
 child: Row(children: [
 const Icon(Icons.fiber_manual_record, color: Colors.redAccent, size: 14),
 const SizedBox(width: 8),
-Text('Запись ГС: crecSecs ~/ 60:{(crecSecs % 60).toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700)),
+if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не удалось воспроизвести ГС: $e')));
 const Spacer(),
 IconButton(icon: const Icon(Icons.close, color: Colors.redAccent), onPressed: () => cstopRecording(send: false)),
 IconButton(icon: const Icon(Icons.send_rounded, color: Colors.green), onPressed: () => cstopRecording(send: true)),

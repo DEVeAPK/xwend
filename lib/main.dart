@@ -1263,7 +1263,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                                 AvatarView(
                           name: widget.chat['type'] == 'direct' ? (widget.chat['other']?['name'] ?? '') : (widget.chat['title'] ?? ''),
                           username: widget.chat['type'] == 'direct' ? (widget.chat['other']?['username'] ?? '') : (widget.chat['username'] ?? ''),
-                          url: widget.chat['type'] == 'direct' ? widget.chat['other']?['avatar_url'] : widget.chat['avatar_url'],
+                          url: (widget.chat['type'] == 'direct' && widget.chat['other'] != null) ? widget.chat['other']['avatar_url'] : widget.chat['avatar_url'],
                           size: 36,
                           icon: widget.chat['type'] == 'saved' ? Icons.bookmark : null,
                         ),

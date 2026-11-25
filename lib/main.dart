@@ -1983,7 +1983,12 @@ class _ProfileTabState extends State<ProfileTab> {
           else GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+             maxCrossAxisExtent: 105,
+             mainAxisSpacing: 8,
+             crossAxisSpacing: 8,
+             childAspectRatio: 0.95,
+           ),
             itemCount: _gifts.length,
             itemBuilder: (_, i) {
               final g = _gifts[i];

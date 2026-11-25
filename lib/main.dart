@@ -16,6 +16,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'config.dart';
 
 const kDarkBase = Color(0xFF07090E);
@@ -36,12 +38,14 @@ class AppTheme {
   final Brightness base;
   final Color accent;
   final int bgIndex;
+  final String? fontFamily;
 
   const AppTheme({
     this.mode = ThemeMode3.liquid,
     this.base = Brightness.dark,
     this.accent = const Color(0xFF10B981),
     this.bgIndex = 1,
+    this.fontFamily,
   });
 
   bool get isDark => base == Brightness.dark;
@@ -71,12 +75,19 @@ class AppTheme {
     }
   }
 
-  AppTheme copyWith({ThemeMode3? mode, Brightness? base, Color? accent, int? bgIndex}) =>
+  AppTheme copyWith({
+    ThemeMode3? mode,
+    Brightness? base,
+    Color? accent,
+    int? bgIndex,
+    String? fontFamily,
+  }) =>
       AppTheme(
         mode: mode ?? this.mode,
         base: base ?? this.base,
         accent: accent ?? this.accent,
         bgIndex: bgIndex ?? this.bgIndex,
+        fontFamily: fontFamily ?? this.fontFamily,
       );
 
   Future save() async {
@@ -88,6 +99,7 @@ class AppTheme {
         'base': base.index,
         'accent': accent.toARGB32(),
         'bgIndex': bgIndex,
+        'fontFamily': fontFamily,
       }),
     );
   }
@@ -103,6 +115,7 @@ class AppTheme {
         base: Brightness.values[m['base'] ?? 1],
         accent: Color(m['accent'] ?? 0xFF10B981),
         bgIndex: m['bgIndex'] ?? 1,
+        fontFamily: m['fontFamily'],
       );
     } catch (e) {
       return const AppTheme();
@@ -153,7 +166,7 @@ class XwendApp extends StatelessWidget {
             useMaterial3: true,
             colorSchemeSeed: t.accent,
             scaffoldBackgroundColor: t.bg,
-            fontFamily: 'Roboto',
+            fontFamily: t.fontFamily,
             appBarTheme: AppBarTheme(
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -959,6 +972,14 @@ class ChatsTabState extends State<ChatsTab> {
               },
             ),
           ],
+          ListTile(
+            leading: const Icon(Icons.wallpaper),
+            title: const Text('Обои чата'),
+            onTap: () {
+              Navigator.pop(ctx);
+              openWallpaperPicker(c);
+            },
+          ),
           if (c['type'] == 'group' || c['type'] == 'channel')
             ListTile(
               leading: const Icon(Icons.info_outline),
@@ -984,6 +1005,102 @@ class ChatsTabState extends State<ChatsTab> {
             },
           ),
         ]),
+      ),
+    );
+  }
+
+  void openWallpaperPicker(Map<String, dynamic> c) {
+    final t = themeCtl.theme;
+    const gradients = [
+      ['#09131A', '#132A38', '#1D4154'],
+      ['#28163B', '#4D295E', '#1A1429'],
+      ['#040B1E', '#0A2458', '#06122E'],
+      ['#0C241E', '#184A3E', '#0B1C18'],
+      ['#2B0E1D', '#5E1B3A', '#1E0B16'],
+      ['#DCE7F7', '#EDF3FC', '#C9D9F0'],
+    ];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: t.cardSolid,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Обои чата', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: t.text)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await sb.from('chats').update({'wallpaper': null}).eq('id', c['id']);
+                    loadData();
+                  },
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: t.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: t.border),
+                    ),
+                    child: Icon(Icons.block, color: t.muted),
+                  ),
+                ),
+                ...gradients.map((g) {
+                  final preview = Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: LinearGradient(
+                        colors: g.map((h) => hexColor(h)).toList(),
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  );
+                  return GestureDetector(
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await sb.from('chats').update({'wallpaper': g.join(',')}).eq('id', c['id']);
+                      loadData();
+                    },
+                    child: preview,
+                  );
+                }),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.image_outlined),
+                label: const Text('Загрузить из галереи'),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final picker = ImagePicker();
+                  final f = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1600);
+                  if (f == null) return;
+                  try {
+                    final path = 'wallpapers/${c['id']}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                    await sb.storage.from(AppConfig.mediaBucket).upload(path, File(f.path));
+                    final url = sb.storage.from(AppConfig.mediaBucket).getPublicUrl(path);
+                    await sb.from('chats').update({'wallpaper': url}).eq('id', c['id']);
+                    loadData();
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+                    }
+                  }
+                },
+              ),
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -1232,6 +1349,8 @@ class ChatScreenState extends State<ChatScreen> {
 
   String get chatId => widget.chat['id'] as String;
   String get me => sb.auth.currentUser!.id;
+
+  String? get wallpaper => widget.chat['wallpaper'] as String?;
 
   bool get canWrite {
     if (widget.chat['type'] != 'channel') return true;
@@ -1520,6 +1639,35 @@ class ChatScreenState extends State<ChatScreen> {
     return widget.chat['title'] ?? 'Чат';
   }
 
+  Widget buildChatBackground(Widget child) {
+    final t = themeCtl.theme;
+    final w = wallpaper;
+    if (w == null || w.isEmpty) {
+      return AnimatedBackground(theme: t, child: child);
+    }
+    if (w.contains(',')) {
+      final colors = w.split(',').map((h) => hexColor(h)).toList();
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: colors,
+          ),
+        ),
+        child: child,
+      );
+    }
+    if (w.startsWith('#')) {
+      return Container(color: hexColor(w), child: child);
+    }
+    return Stack(children: [
+      Positioned.fill(child: CachedNetworkImage(imageUrl: w, fit: BoxFit.cover)),
+      Positioned.fill(child: Container(color: Colors.black.withOpacity(0.25))),
+      Positioned.fill(child: child),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = themeCtl.theme;
@@ -1527,9 +1675,8 @@ class ChatScreenState extends State<ChatScreen> {
         ? widget.chat['other']['avatar_url']
         : widget.chat['avatar_url'];
     return Scaffold(
-      body: AnimatedBackground(
-        theme: t,
-        child: SafeArea(
+      body: buildChatBackground(
+        SafeArea(
           bottom: false,
           child: Center(
             child: ConstrainedBox(
@@ -2699,25 +2846,88 @@ class ProfileTabState extends State<ProfileTab> {
             const SizedBox(height: 8),
             Wrap(
               spacing: 10,
-              children: kAccents.map((c) => GestureDetector(
-                onTap: () {
-                  themeCtl.update(themeCtl.theme.copyWith(accent: c));
-                  setLocal(() {});
-                  setState(() {});
-                },
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: c,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: themeCtl.theme.accent == c ? Colors.white : Colors.transparent,
-                      width: 3,
+              children: [
+                ...kAccents.map((c) => GestureDetector(
+                  onTap: () {
+                    themeCtl.update(themeCtl.theme.copyWith(accent: c));
+                    setLocal(() {});
+                    setState(() {});
+                  },
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: c,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: themeCtl.theme.accent == c ? Colors.white : Colors.transparent,
+                        width: 3,
+                      ),
                     ),
                   ),
+                )),
+                GestureDetector(
+                  onTap: () async {
+                    Color picked = themeCtl.theme.accent;
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: t.cardSolid,
+                        title: const Text('Свой акцент'),
+                        content: SingleChildScrollView(
+                          child: ColorPicker(
+                            pickerColor: themeCtl.theme.accent,
+                            onColorChanged: (c) => picked = c,
+                            enableAlpha: false,
+                            hexInputBar: true,
+                          ),
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Выбрать')),
+                        ],
+                      ),
+                    );
+                    if (ok == true) {
+                      themeCtl.update(themeCtl.theme.copyWith(accent: picked));
+                      setLocal(() {});
+                      setState(() {});
+                    }
+                  },
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: const SweepGradient(colors: [
+                        Colors.red, Colors.orange, Colors.yellow, Colors.green, Colors.blue, Colors.purple, Colors.red,
+                      ]),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.colorize, size: 16, color: Colors.white),
+                  ),
                 ),
-              )).toList(),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('Шрифт', style: TextStyle(color: t.muted, fontSize: 12)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: themeCtl.theme.fontFamily,
+              decoration: const InputDecoration(labelText: 'Семейство шрифтов'),
+              items: const [
+                DropdownMenuItem(value: null, child: Text('По умолчанию')),
+                DropdownMenuItem(value: 'Inter', child: Text('Inter')),
+                DropdownMenuItem(value: 'Manrope', child: Text('Manrope')),
+                DropdownMenuItem(value: 'Montserrat', child: Text('Montserrat')),
+                DropdownMenuItem(value: 'JetBrains Mono', child: Text('JetBrains Mono')),
+                DropdownMenuItem(value: 'Playfair Display', child: Text('Playfair Display')),
+              ],
+              onChanged: (v) {
+                themeCtl.update(themeCtl.theme.copyWith(fontFamily: v));
+                setLocal(() {});
+                setState(() {});
+              },
             ),
             const SizedBox(height: 20),
           ]),

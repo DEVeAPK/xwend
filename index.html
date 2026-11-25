@@ -1,210 +1,416 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#07090E">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Xwend">
-  <title>Xwend — Мессенджер нового поколения</title>
-  <link rel="manifest" href="manifest.json">
-  <style>
-    :root {
-      --bg-dark: #07090E;
-      --accent: #10B981;
-      --accent-2: #7C5CFF;
-      --text: #F4F7FB;
-      --muted: #94A0B8;
-      --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 55%, rgba(16, 185, 129, 0.10));
-      --glass-border: rgba(255, 255, 255, 0.24);
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Roboto", sans-serif;
-    }
-
-    html, body {
-      width: 100%;
-      height: 100%;
-      background: var(--bg-dark);
-      color: var(--text);
-      overflow: hidden;
-    }
-
-    /* Живой жидкий фон iOS 26 */
-    .liquid-bg {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      background: linear-gradient(135deg, #09131A 0%, #132A38 50%, #1D4154 100%);
-      overflow: hidden;
-    }
-
-    .blob {
-      position: absolute;
-      width: 420px;
-      height: 420px;
-      border-radius: 50%;
-      filter: blur(75px);
-      opacity: 0.45;
-      animation: floatBlob 18s ease-in-out infinite alternate;
-    }
-
-    .blob-1 {
-      top: -110px;
-      left: -90px;
-      background: radial-gradient(circle, var(--accent), transparent 70%);
-    }
-
-    .blob-2 {
-      bottom: -120px;
-      right: -90px;
-      background: radial-gradient(circle, var(--accent-2), transparent 70%);
-      animation-delay: -9s;
-    }
-
-    @keyframes floatBlob {
-      0% { transform: translate(0, 0) scale(1); }
-      100% { transform: translate(45px, 35px) scale(1.12); }
-    }
-
-    /* Стеклянный экран загрузки */
-    #xwend-splash {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 0.45s ease, visibility 0.45s ease;
-    }
-
-    #xwend-splash.hidden {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-    .glass-card {
-      position: relative;
-      padding: 32px 36px;
-      border-radius: 30px;
-      background: var(--glass-bg);
-      backdrop-filter: blur(28px) saturate(180%);
-      -webkit-backdrop-filter: blur(28px) saturate(180%);
-      border: 1px solid var(--glass-border);
-      box-shadow:
-        0 20px 50px rgba(0, 0, 0, 0.45),
-        inset 0 1px 1px rgba(255, 255, 255, 0.35);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-    }
-
-    .xwend-logo {
-      width: 68px;
-      height: 68px;
-      border-radius: 20px;
-      background: rgba(16, 185, 129, 0.18);
-      border: 1px solid rgba(255, 255, 255, 0.32);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      box-shadow: 0 10px 25px rgba(16, 185, 129, 0.25);
-    }
-
-    .xwend-logo::after {
-      content: "";
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 10px var(--accent);
-      animation: pulseDot 2s infinite alternate;
-    }
-
-    @keyframes pulseDot {
-      0% { opacity: 0.4; transform: scale(0.85); }
-      100% { opacity: 1; transform: scale(1.15); }
-    }
-
-    .title {
-      margin-top: 14px;
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: -0.4px;
-    }
-
-    .subtitle {
-      margin-top: 4px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .loader-bar {
-      margin-top: 22px;
-      width: 140px;
-      height: 4px;
-      border-radius: 99px;
-      background: rgba(255, 255, 255, 0.12);
-      overflow: hidden;
-    }
-
-    .loader-fill {
-      width: 45%;
-      height: 100%;
-      border-radius: 99px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      animation: slideLoader 1.3s ease-in-out infinite alternate;
-    }
-
-    @keyframes slideLoader {
-      0% { transform: translateX(-20%); }
-      100% { transform: translateX(140%); }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xwend Web</title>
+    <!-- Подключаем Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* --- Базовые стили и Liquid Glass --- */
+        :root {
+            --accent: #10B981;
+            --bg-dark: #07090E;
+            --text-main: #F4F7FB;
+            --text-muted: #94A0B8;
+            --card-bg: rgba(21, 25, 35, 0.6);
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body {
+            background: linear-gradient(135deg, #09131A, #132A38, #1D4154);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        #app {
+            width: 100%;
+            max-width: 800px;
+            height: 95vh;
+            display: flex;
+            flex-direction: column;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+        }
+        /* --- Экран Авторизации --- */
+        #auth-screen {
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+        .auth-box {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 12px;
+            outline: none;
+        }
+        input:focus { border-color: var(--accent); }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { background: #0d9668; }
+        /* --- Экран Чатов --- */
+        #chat-screen {
+            display: none; /* Скрыт по умолчанию */
+            flex-direction: column;
+            height: 100%;
+        }
+        .chat-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.2);
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.4;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .msg-out {
+            align-self: flex-end;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.8), rgba(16, 185, 129, 0.4));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-bottom-right-radius: 4px;
+        }
+        .msg-in {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom-left-radius: 4px;
+        }
+        .msg-reactions {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+            font-size: 12px;
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 10px;
+            width: fit-content;
+        }
+        .chat-input-area {
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            background: rgba(0,0,0,0.2);
+        }
+        .chat-input-area input { flex: 1; }
+        /* Кастомный скроллбар */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
 </head>
 <body>
-  <div class="liquid-bg">
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-  </div>
 
-  <div id="xwend-splash">
-    <div class="glass-card">
-      <div class="xwend-logo">
-        <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
-          <path d="M9 9L23 23M23 9L9 23" stroke="#10B981" stroke-width="3.2" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="title">Xwend</div>
-      <div class="subtitle">Liquid Glass iOS 26</div>
-      <div class="loader-bar">
-        <div class="loader-fill"></div>
-      </div>
+<div id="app">
+    <!-- ЭКРАН АВТОРИЗАЦИИ -->
+    <div id="auth-screen">
+        <div class="auth-box">
+            <h2 style="text-align: center;">Xwend Web</h2>
+            <p style="text-align: center; font-size: 12px; color: var(--text-muted);">Войдите, чтобы начать общение</p>
+            <input type="email" id="auth-email" placeholder="Email" />
+            <input type="password" id="auth-pass" placeholder="Пароль" />
+            <button id="btn-login" onclick="login()">Войти</button>
+            <button id="btn-register" onclick="register()" style="background: transparent; border: 1px solid var(--accent);">Создать аккаунт</button>
+        </div>
     </div>
-  </div>
 
-  <script src="flutter_bootstrap.js" async></script>
-  <script>
-    window.addEventListener('flutter-first-frame', function () {
-      const splash = document.getElementById('xwend-splash');
-      if (splash) splash.classList.add('hidden');
-    });
-    setTimeout(function () {
-      const splash = document.getElementById('xwend-splash');
-      if (splash) splash.classList.add('hidden');
-    }, 5000);
-  </script>
+    <!-- ЭКРАН ЧАТА -->
+    <div id="chat-screen">
+        <div class="chat-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 40px; height: 40px; background: var(--accent); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold;">X</div>
+                <div>
+                    <div style="font-weight: bold;">Общий чат</div>
+                    <div style="font-size: 11px; color: var(--text-muted);" id="status-text">В сети</div>
+                </div>
+            </div>
+            <button onclick="logout()" style="padding: 6px 12px; background: rgba(255,255,255,0.1); font-size: 12px;">Выйти</button>
+        </div>
+        <div class="chat-messages" id="messages-container">
+            <!-- Сообщения будут здесь -->
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="message-input" placeholder="Напишите сообщение..." onkeypress="handleEnter(event)" />
+            <button onclick="sendMessage()" style="border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center;">➤</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- КОНФИГУРАЦИЯ SUPABASE ---
+    // Замените эти значения на ваши из config.dart
+    const SUPABASE_URL = 'https://mdggylqccbgzciirnizs.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_z3kEFV2D8pXZzKxP4QMUsw_thDkdBF7';
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // --- ПЕРЕМЕННЫЕ СОСТОЯНИЯ ---
+    let currentUser = null;
+    let currentChatId = null;
+    let messagesChannel = null;
+
+    // --- ИНИЦИАЛИЗАЦИЯ И АВТОРИЗАЦИЯ ---
+    async function init() {
+        const { data: { session } } = await sb.auth.getSession();
+        if (session) {
+            currentUser = session.user;
+            showChatScreen();
+            await getOrCreateChat();
+            loadMessages();
+            subscribeToMessages();
+        }
+    }
+
+    async function login() {
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-pass').value;
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) return alert(error.message);
+        currentUser = data.user;
+        showChatScreen();
+        await getOrCreateChat();
+        loadMessages();
+        subscribeToMessages();
+    }
+
+    async function register() {
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-pass').value;
+        const { data, error } = await sb.auth.signUp({ email, password });
+        if (error) return alert(error.message);
+        alert('Аккаунт создан! Теперь войдите.');
+    }
+
+    async function logout() {
+        await sb.auth.signOut();
+        currentUser = null;
+        if (messagesChannel) sb.removeChannel(messagesChannel);
+        document.getElementById('chat-screen').style.display = 'none';
+        document.getElementById('auth-screen').style.display = 'flex';
+    }
+
+    // --- РАБОТА С ЧАТОМ ---
+    async function getOrCreateChat() {
+        // Для простоты берем первый публичный чат или создаем новый
+        let { data: chats, error } = await sb.from('chats').select('id').limit(1);
+        
+        if (error) {
+            console.error(error);
+            return alert('Ошибка загрузки чатов. Убедитесь, что таблица "chats" существует.');
+        }
+
+        if (chats.length === 0) {
+            // Создаем чат, если его нет
+            const { data: newChat, error: createErr } = await sb
+                .from('chats')
+                .insert([{ title: 'Общий веб-чат', type: 'group' }])
+                .select()
+                .single();
+            if (createErr) return alert('Не удалось создать чат: ' + createErr.message);
+            currentChatId = newChat.id;
+        } else {
+            currentChatId = chats[0].id;
+        }
+    }
+
+    function showChatScreen() {
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('chat-screen').style.display = 'flex';
+    }
+
+    // --- СООБЩЕНИЯ ---
+    async function loadMessages() {
+        const { data, error } = await sb
+            .from('messages')
+            .select('*')
+            .eq('chat_id', currentChatId)
+            .order('created_at', { ascending: true });
+
+        if (error) return console.error(error);
+        
+        const container = document.getElementById('messages-container');
+        container.innerHTML = '';
+        data.forEach(msg => appendMessage(msg));
+        scrollToBottom();
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('message-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        input.value = ''; // Очищаем сразу
+
+        const { error } = await sb.from('messages').insert([{
+            chat_id: currentChatId,
+            sender_id: currentUser.id,
+            content: text,
+            message_type: 'text'
+        }]);
+
+        if (error) alert('Ошибка отправки: ' + error.message);
+    }
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') sendMessage();
+    }
+
+    // --- REALTIME ПОДПИСКА ---
+    function subscribeToMessages() {
+        if (messagesChannel) sb.removeChannel(messagesChannel);
+
+        messagesChannel = sb.channel('web-chat-rt')
+            .on('postgres_changes', { 
+                event: 'INSERT', 
+                schema: 'public', 
+                table: 'messages',
+                filter: `chat_id=eq.${currentChatId}`
+            }, payload => {
+                appendMessage(payload.new);
+                scrollToBottom();
+            })
+            .subscribe();
+    }
+
+    // --- ОТОБРАЖЕНИЕ СООБЩЕНИЙ ---
+    function appendMessage(msg) {
+        const container = document.getElementById('messages-container');
+        const isOut = msg.sender_id === currentUser.id;
+        
+        const div = document.createElement('div');
+        div.className = `message-bubble ${isOut ? 'msg-out' : 'msg-in'}`;
+        
+        // Время
+        const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        div.innerHTML = `
+            <div>${msg.content}</div>
+            <div style="font-size: 10px; text-align: right; margin-top: 4px; opacity: 0.7;">${time}</div>
+        `;
+
+        // --- РЕАКЦИИ (Базовые) ---
+        // Создаем контейнер для реакций
+        const reactionsDiv = document.createElement('div');
+        reactionsDiv.className = 'msg-reactions';
+        reactionsDiv.id = `reactions-${msg.id}`;
+        
+        // Добавляем кнопку "поставить реакцию" (при клике на сообщение)
+        div.onclick = () => {
+            const emoji = prompt('Введите эмодзи для реакции (например, ❤️, 👍, 🔥):');
+            if (emoji) toggleReaction(msg.id, emoji);
+        };
+
+        div.appendChild(reactionsDiv);
+        container.appendChild(div);
+        loadReactionsForMessage(msg.id, reactionsDiv);
+    }
+
+    function scrollToBottom() {
+        const container = document.getElementById('messages-container');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // --- РЕАКЦИИ ---
+    async function toggleReaction(messageId, emoji) {
+        // Проверяем, есть ли уже реакция от этого пользователя
+        const { data: existing } = await sb
+            .from('message_reactions')
+            .select('id, emoji')
+            .eq('message_id', messageId)
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+
+        if (existing) {
+            if (existing.emoji === emoji) {
+                // Удаляем, если нажали тот же эмодзи
+                await sb.from('message_reactions').delete().eq('id', existing.id);
+            } else {
+                // Обновляем на новый
+                await sb.from('message_reactions').update({ emoji }).eq('id', existing.id);
+            }
+        } else {
+            // Создаем новую
+            const { error } = await sb.from('message_reactions').insert([{
+                message_id: messageId,
+                user_id: currentUser.id,
+                emoji: emoji
+            }]);
+            if (error) alert("Ошибка реакции: " + error.message);
+        }
+        
+        // Перезагружаем реакции для этого сообщения
+        const reactionsDiv = document.getElementById(`reactions-${messageId}`);
+        if (reactionsDiv) loadReactionsForMessage(messageId, reactionsDiv);
+    }
+
+    async function loadReactionsForMessage(messageId, container) {
+        const { data, error } = await sb
+            .from('message_reactions')
+            .select('emoji')
+            .eq('message_id', messageId);
+
+        if (error || !data) return;
+
+        const counts = {};
+        data.forEach(r => counts[r.emoji] = (counts[r.emoji] || 0) + 1);
+
+        container.innerHTML = Object.entries(counts)
+            .map(([emoji, count]) => `<span>${emoji} ${count}</span>`)
+            .join('');
+        
+        container.style.display = Object.keys(counts).length > 0 ? 'flex' : 'none';
+    }
+
+    // --- ЗАПУСК ---
+    init();
+
+</script>
 </body>
 </html>

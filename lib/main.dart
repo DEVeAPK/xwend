@@ -1000,7 +1000,7 @@ const ChatScreen({super.key, required this.chat});
 @override
 State createState() => _ChatScreenState();
 }
-class _ChatScreenState extends State {
+class _ChatScreenState extends State<ChatScreen> {
 final _sb = Supabase.instance.client;
 final _input = TextEditingController();
 final _scroll = ScrollController();
@@ -1354,7 +1354,7 @@ child: Row(children: [
 IconButton(icon: Icon(Icons.emoji_emotions_outlined, color: t.muted), onPressed: () => setState(() => _showEmoji = !_showEmoji)),
 Expanded(
 child: TextField(
-controller: input,
+controller: _input,
 style: TextStyle(color: t.text),
 decoration: const InputDecoration(hintText: 'Сообщение...', border: InputBorder.none),
 onSubmitted: (_) => _send(),
@@ -1389,7 +1389,7 @@ padding: const EdgeInsets.all(8),
 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8),
 itemCount: _emojis.length,
 itemBuilder: (_, i) => InkWell(
-onTap: () { __input.text += _emojis[i]; setState(() {}); },
+onTap: () { _input.text += _emojis[i]; setState(() {}); },
 child: Center(child: Text(_emojis[i], style: const TextStyle(fontSize: 24))),
 ),
 ),

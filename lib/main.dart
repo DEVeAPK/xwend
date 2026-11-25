@@ -17,7 +17,6 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'config.dart';
 
 const kDarkBase = Color(0xFF07090E);
@@ -38,14 +37,12 @@ class AppTheme {
   final Brightness base;
   final Color accent;
   final int bgIndex;
-  final String? fontFamily;
 
   const AppTheme({
     this.mode = ThemeMode3.liquid,
     this.base = Brightness.dark,
     this.accent = const Color(0xFF10B981),
     this.bgIndex = 1,
-    this.fontFamily,
   });
 
   bool get isDark => base == Brightness.dark;
@@ -80,14 +77,12 @@ class AppTheme {
     Brightness? base,
     Color? accent,
     int? bgIndex,
-    String? fontFamily,
   }) =>
       AppTheme(
         mode: mode ?? this.mode,
         base: base ?? this.base,
         accent: accent ?? this.accent,
         bgIndex: bgIndex ?? this.bgIndex,
-        fontFamily: fontFamily ?? this.fontFamily,
       );
 
   Future save() async {
@@ -99,7 +94,6 @@ class AppTheme {
         'base': base.index,
         'accent': accent.toARGB32(),
         'bgIndex': bgIndex,
-        'fontFamily': fontFamily,
       }),
     );
   }
@@ -115,7 +109,6 @@ class AppTheme {
         base: Brightness.values[m['base'] ?? 1],
         accent: Color(m['accent'] ?? 0xFF10B981),
         bgIndex: m['bgIndex'] ?? 1,
-        fontFamily: m['fontFamily'],
       );
     } catch (e) {
       return const AppTheme();
@@ -166,7 +159,7 @@ class XwendApp extends StatelessWidget {
             useMaterial3: true,
             colorSchemeSeed: t.accent,
             scaffoldBackgroundColor: t.bg,
-            fontFamily: t.fontFamily,
+            fontFamily: 'Roboto',
             appBarTheme: AppBarTheme(
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -2908,26 +2901,6 @@ class ProfileTabState extends State<ProfileTab> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            Text('Шрифт', style: TextStyle(color: t.muted, fontSize: 12)),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: themeCtl.theme.fontFamily,
-              decoration: const InputDecoration(labelText: 'Семейство шрифтов'),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('По умолчанию')),
-                DropdownMenuItem(value: 'Inter', child: Text('Inter')),
-                DropdownMenuItem(value: 'Manrope', child: Text('Manrope')),
-                DropdownMenuItem(value: 'Montserrat', child: Text('Montserrat')),
-                DropdownMenuItem(value: 'JetBrains Mono', child: Text('JetBrains Mono')),
-                DropdownMenuItem(value: 'Playfair Display', child: Text('Playfair Display')),
-              ],
-              onChanged: (v) {
-                themeCtl.update(themeCtl.theme.copyWith(fontFamily: v));
-                setLocal(() {});
-                setState(() {});
-              },
             ),
             const SizedBox(height: 20),
           ]),

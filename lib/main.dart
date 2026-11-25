@@ -189,8 +189,8 @@ child: CustomPaint(
 painter: _LogoPainter(widget.accent),
 child: widget.pulse
 ? AnimatedBuilder(
-animation: _c,
-builder: (_, __) => Align(
+animation: c,
+builder: (, __) => Align(
 alignment: const Alignment(0.85, -0.85),
 child: Container(
 width: widget.size * 0.14,
@@ -296,8 +296,8 @@ imageUrl: url!,
 width: size,
 height: size,
 fit: BoxFit.cover,
-placeholder: (_, __) => _fallback(bg),
-errorWidget: (_, __, ___) => _fallback(bg),
+placeholder: (_, __) => fallback(bg),
+errorWidget: (, __, ___) => _fallback(bg),
 ),
 );
 } else {
@@ -339,8 +339,8 @@ super.dispose();
 Widget build(BuildContext context) {
 final t = widget.theme;
 return AnimatedBuilder(
-animation: _c,
-builder: (_, child) {
+animation: c,
+builder: (, child) {
 final v = _c.value;
 return Container(
 decoration: BoxDecoration(
@@ -704,12 +704,12 @@ RealtimeChannel? _chMsgs;
 void initState() {
 super.initState();
 _load();
-_ch = _sb.channel('chats-rt')
-..onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'chats', callback: (_) => _load())
-..onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'chat_participants', callback: (_) => _load())
+_ch = sb.channel('chats-rt')
+..onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'chats', callback: () => load())
+..onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'chat_participants', callback: () => _load())
 ..subscribe();
-_chMsgs = _sb.channel('msgs-rt')
-..onPostgresChanges(event: PostgresChangeEvent.insert, schema: 'public', table: 'messages', callback: (_) => _load())
+_chMsgs = sb.channel('msgs-rt')
+..onPostgresChanges(event: PostgresChangeEvent.insert, schema: 'public', table: 'messages', callback: () => _load())
 ..subscribe();
 }
 @override
@@ -722,8 +722,8 @@ Future _ensureSaved() async {
 if (_savedId != null) return;
 try {
 final r = await _sb.rpc('get_or_create_saved_chat');
-_savedId = r as String;
-} catch (_) {}
+savedId = r as String;
+} catch () {}
 }
 Future _load() async {
 final me = _sb.auth.currentUser!.id;
@@ -735,9 +735,9 @@ if (ids.isEmpty) {
 if (mounted) setState(() { _chats = []; _loading = false; });
 return;
 }
-final chats = await _sb.from('chats').select('*').inFilter('id', ids);
+final chats = await _sb.from('chats').select('').inFilter('id', ids);
 final allParts = await _sb.from('chat_participants').select('chat_id, user_id, role, profiles:user_id(id, username, name, avatar_color, avatar_url)').inFilter('chat_id', ids);
-final lastMsgs = await _sb.from('messages').select('*').inFilter('chat_id', ids).order('created_at', ascending: false);
+final lastMsgs = await _sb.from('messages').select('').inFilter('chat_id', ids).order('created_at', ascending: false);
 final lastBy = <String, Map<String, dynamic>>{};
 for (final m in lastMsgs as List) {
 lastBy.putIfAbsent(m['chat_id'] as String, () => Map<String, dynamic>.from(m));
@@ -761,8 +761,8 @@ if (ta == null) return 1;
 if (tb == null) return -1;
 return DateTime.parse(tb).compareTo(DateTime.parse(ta));
 });
-if (mounted) setState(() { _chats = list; _loading = false; });
-} catch (_) {
+if (mounted) setState(() { _chats = list; loading = false; });
+} catch () {
 if (mounted) setState(() => _loading = false);
 }
 }
@@ -781,33 +781,33 @@ case 'gift': return '🎁 Подарок';
 default: return m['content'] ?? '';
 }
 }
-Future _openChat(Map<String, dynamic> c) async {
-await Navigator.of(context).push(CupertinoPageRoute(builder: (_) => ChatScreen(chat: c)));
+Future openChat(Map<String, dynamic> c) async {
+await Navigator.of(context).push(CupertinoPageRoute(builder: () => ChatScreen(chat: c)));
 _load();
 }
-void _openContext(Map<String, dynamic> c) {
+void openContext(Map<String, dynamic> c) {
 HapticFeedback.mediumImpact();
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: (_) => SafeArea(
+builder: () => SafeArea(
 child: Column(mainAxisSize: MainAxisSize.min, children: [
 ListTile(
-title: Text(_name(c), style: TextStyle(fontWeight: FontWeight.w700, color: t.text)),
+title: Text(name(c), style: TextStyle(fontWeight: FontWeight.w700, color: t.text)),
 subtitle: Text(c['username'] != null ? '@${c['username']}' : '', style: TextStyle(color: t.muted, fontSize: 12)),
 ),
 const Divider(height: 1),
 if (c['type'] == 'direct' && c['other'] != null) ...[
-ListTile(leading: const Icon(Icons.person_outline), title: const Text('Открыть профиль'), onTap: () { Navigator.pop(context); Navigator.of(context).push(CupertinoPageRoute(builder: (_) => OtherProfileScreen(userId: c['other']['id'], user: c['other']))); }),
+ListTile(leading: const Icon(Icons.person_outline), title: const Text('Открыть профиль'), onTap: () { Navigator.pop(context); Navigator.of(context).push(CupertinoPageRoute(builder: () => OtherProfileScreen(userId: c['other']['id'], user: c['other']))); }),
 ListTile(leading: const Icon(Icons.block), title: const Text('Заблокировать'), onTap: () async {
 Navigator.pop(context);
-try { await Supabase.instance.client.rpc('toggle_block', params: {'p_user_id': c['other']['id']}); } catch (_) {}
+try { await Supabase.instance.client.rpc('toggle_block', params: {'p_user_id': c['other']['id']}); } catch () {}
 }),
 ],
 if (c['type'] == 'group' || c['type'] == 'channel')
-ListTile(leading: const Icon(Icons.info_outline), title: const Text('Информация'), onTap: () { Navigator.pop(context); Navigator.push(context, CupertinoPageRoute(builder: (_) => GroupScreen(chat: c))); }),
+ListTile(leading: const Icon(Icons.info_outline), title: const Text('Информация'), onTap: () { Navigator.pop(context); Navigator.push(context, CupertinoPageRoute(builder: () => GroupScreen(chat: c))); }),
 ListTile(
 leading: const Icon(Icons.delete, color: Colors.redAccent),
 title: const Text('Удалить чат', style: TextStyle(color: Colors.redAccent)),
@@ -819,21 +819,21 @@ await Supabase.instance.client.rpc('delete_chat', params: {'p_chat_id': c['id']}
 } else {
 await Supabase.instance.client.rpc('leave_chat', params: {'p_chat_id': c['id']});
 }
-_load();
-} catch (_) {}
+load();
+} catch () {}
 },
 ),
 ]),
 ),
 );
 }
-void _openCreateSheet() {
+void openCreateSheet() {
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: (_) => SafeArea(
+builder: () => SafeArea(
 child: Column(mainAxisSize: MainAxisSize.min, children: [
 ListTile(leading: const Icon(Icons.group_add), title: const Text('Новая группа'), onTap: () { Navigator.pop(context); _createChat('group'); }),
 ListTile(leading: const Icon(Icons.campaign), title: const Text('Новый канал'), onTap: () { Navigator.pop(context); _createChat('channel'); }),
@@ -841,13 +841,13 @@ ListTile(leading: const Icon(Icons.campaign), title: const Text('Новый ка
 ),
 );
 }
-void _createChat(String type) {
+void createChat(String type) {
 final t = themeCtl.theme;
 final title = TextEditingController();
 final uname = TextEditingController();
 showDialog(
 context: context,
-builder: (_) => AlertDialog(
+builder: () => AlertDialog(
 backgroundColor: t.cardSolid,
 title: Text(type == 'group' ? 'Новая группа' : 'Новый канал'),
 content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -1056,13 +1056,13 @@ Future _load() async {
 try {
 final data = await _sb.from('messages').select('*').eq('chat_id', chatId).order('created_at', ascending: true);
 if (mounted) setState(() { _messages = List<Map<String, dynamic>>.from(data); _loading = false; });
-_scrollDown();
-} catch (_) {
+scrollDown();
+} catch () {
 if (mounted) setState(() => _loading = false);
 }
 }
-void _scrollDown() {
-WidgetsBinding.instance.addPostFrameCallback((_) {
+void scrollDown() {
+WidgetsBinding.instance.addPostFrameCallback(() {
 if (_scroll.hasClients) _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic);
 });
 }
@@ -1070,8 +1070,8 @@ Future _send() async {
 final text = _input.text.trim();
 if (text.isEmpty || _sending || !canWrite) return;
 _sending = true;
-_input.clear();
-final tid = 'tmp_${DateTime.now().millisecondsSinceEpoch}';
+input.clear();
+final tid = 'tmp${DateTime.now().millisecondsSinceEpoch}';
 final optimistic = {
 'id': tid, 'chat_id': chatId, 'sender_id': me,
 'content': text, 'message_type': 'text',
@@ -1089,8 +1089,8 @@ final res = await _sb.from('messages').insert({
 'reply_to': optimistic['reply_to'],
 }).select().single();
 final idx = _messages.indexWhere((m) => m['id'] == tid);
-if (idx >= 0 && mounted) setState(() => _messages[idx] = Map<String, dynamic>.from(res));
-} catch (_) {
+if (idx >= 0 && mounted) setState(() => messages[idx] = Map<String, dynamic>.from(res));
+} catch () {
 if (mounted) setState(() => _messages.removeWhere((m) => m['id'] == tid));
 } finally {
 _sending = false;
@@ -1100,7 +1100,7 @@ Future _deleteMessage(Map<String, dynamic> m) async {
 final idx = _messages.indexOf(m);
 if (idx < 0) return;
 setState(() => _messages.removeAt(idx));
-try { await _sb.from('messages').delete().eq('id', m['id']); } catch (_) {
+try { await sb.from('messages').delete().eq('id', m['id']); } catch () {
 if (mounted) setState(() => _messages.insert(idx, m));
 }
 }
@@ -1119,8 +1119,8 @@ final r = await FilePicker.platform.pickFiles();
 if (r == null || r.files.single.path == null) return;
 await _uploadAndSendFile(File(r.files.single.path!), isImage: false, name: r.files.single.name);
 }
-Future _uploadAndSendFile(File file, {required bool isImage, required String name}) async {
-final tid = 'tmp_${DateTime.now().millisecondsSinceEpoch}';
+Future uploadAndSendFile(File file, {required bool isImage, required String name}) async {
+final tid = 'tmp${DateTime.now().millisecondsSinceEpoch}';
 setState(() {
 _messages.add({
 'id': tid, 'chat_id': chatId, 'sender_id': me,
@@ -1132,7 +1132,7 @@ _messages.add({
 _scrollDown();
 try {
 final ext = name.split('.').last;
-final path = '$me/\({DateTime.now().millisecondsSinceEpoch}.\)ext';
+final path = '$me/DateTime.now().millisecondsSinceEpoch.ext';
 await _sb.storage.from(AppConfig.mediaBucket).upload(path, file);
 final url = _sb.storage.from(AppConfig.mediaBucket).getPublicUrl(path);
 final res = await _sb.from('messages').insert({
@@ -1152,10 +1152,10 @@ if (!canWrite) return;
 try {
 if (!await _recorder.hasPermission()) return;
 final dir = await getTemporaryDirectory();
-final path = '\({dir.path}/voice\_\){DateTime.now().millisecondsSinceEpoch}.m4a';
+final path = '{dir.path}/voice_{DateTime.now().millisecondsSinceEpoch}.m4a';
 await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
 setState(() { _recording = true; _recSecs = 0; });
-_recTimer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() => _recSecs++));
+recTimer = Timer.periodic(const Duration(seconds: 1), () => setState(() => _recSecs++));
 } catch (e) {
 if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Микрофон недоступен: $e')));
 }
@@ -1166,8 +1166,8 @@ final path = await _recorder.stop();
 setState(() => _recording = false);
 if (!send || path == null) return;
 final file = File(path);
-final dur = _recSecs < 1 ? 1 : _recSecs;
-final tid = 'tmp_${DateTime.now().millisecondsSinceEpoch}';
+final dur = _recSecs < 1 ? 1 : recSecs;
+final tid = 'tmp${DateTime.now().millisecondsSinceEpoch}';
 setState(() {
 _messages.add({
 'id': tid, 'chat_id': chatId, 'sender_id': me,
@@ -1178,7 +1178,7 @@ _messages.add({
 });
 _scrollDown();
 try {
-final storagePath = '\(me/voice\_\){DateTime.now().millisecondsSinceEpoch}.m4a';
+final storagePath = 'me/voice_{DateTime.now().millisecondsSinceEpoch}.m4a';
 await _sb.storage.from(AppConfig.mediaBucket).upload(storagePath, file);
 final url = _sb.storage.from(AppConfig.mediaBucket).getPublicUrl(storagePath);
 final res = await _sb.from('messages').insert({
@@ -1186,19 +1186,19 @@ final res = await _sb.from('messages').insert({
 'message_type': 'voice', 'file_url': url, 'duration_sec': dur,
 }).select().single();
 final idx = _messages.indexWhere((m) => m['id'] == tid);
-if (idx >= 0 && mounted) setState(() => _messages[idx] = Map<String, dynamic>.from(res));
-} catch (_) {
+if (idx >= 0 && mounted) setState(() => messages[idx] = Map<String, dynamic>.from(res));
+} catch () {
 if (mounted) setState(() => _messages.removeWhere((m) => m['id'] == tid));
 }
 }
-void _openMessageMenu(Map<String, dynamic> m) {
+void openMessageMenu(Map<String, dynamic> m) {
 HapticFeedback.mediumImpact();
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-builder: (_) => SafeArea(
+builder: () => SafeArea(
 child: Column(mainAxisSize: MainAxisSize.min, children: [
 ListTile(leading: const Icon(Icons.reply), title: const Text('Ответить'), onTap: () { Navigator.pop(context); setState(() => _replyTo = m); }),
 ListTile(leading: const Icon(Icons.delete, color: Colors.redAccent), title: const Text('Удалить', style: TextStyle(color: Colors.redAccent)), onTap: () { Navigator.pop(context); _deleteMessage(m); }),
@@ -1206,9 +1206,9 @@ ListTile(leading: const Icon(Icons.delete, color: Colors.redAccent), title: cons
 ),
 );
 }
-void _openChatInfo() {
+void openChatInfo() {
 if (widget.chat['type'] == 'group' || widget.chat['type'] == 'channel') {
-Navigator.push(context, CupertinoPageRoute(builder: (_) => GroupScreen(chat: widget.chat)));
+Navigator.push(context, CupertinoPageRoute(builder: () => GroupScreen(chat: widget.chat)));
 } else if (widget.chat['type'] == 'direct' && widget.chat['other'] != null) {
 Navigator.push(context, CupertinoPageRoute(builder: (_) => OtherProfileScreen(userId: widget.chat['other']['id'], user: widget.chat['other'])));
 }
@@ -1276,8 +1276,8 @@ controller: _scroll,
 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
 cacheExtent: 800,
 addAutomaticKeepAlives: true,
-itemCount: _messages.length,
-itemBuilder: (_, i) {
+itemCount: messages.length,
+itemBuilder: (, i) {
 final m = _messages[i];
 final out = m['sender_id'] == me;
 return RepaintBoundary(
@@ -1329,7 +1329,7 @@ padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
 child: Row(children: [
 const Icon(Icons.fiber_manual_record, color: Colors.redAccent, size: 14),
 const SizedBox(width: 8),
-Text('Запись ГС: \({\_recSecs ~/ 60}:\){(_recSecs % 60).toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700)),
+Text('Запись ГС: \({_recSecs ~/ 60}:\){(_recSecs % 60).toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700)),
 const Spacer(),
 IconButton(icon: const Icon(Icons.close, color: Colors.redAccent), onPressed: () => _stopRecording(send: false)),
 IconButton(icon: const Icon(Icons.send_rounded, color: Colors.green), onPressed: () => _stopRecording(send: true)),
@@ -1354,10 +1354,10 @@ child: Row(children: [
 IconButton(icon: Icon(Icons.emoji_emotions_outlined, color: t.muted), onPressed: () => setState(() => _showEmoji = !_showEmoji)),
 Expanded(
 child: TextField(
-controller: _input,
+controller: input,
 style: TextStyle(color: t.text),
 decoration: const InputDecoration(hintText: 'Сообщение...', border: InputBorder.none),
-onSubmitted: (_) => _send(),
+onSubmitted: () => _send(),
 ),
 ),
 IconButton(icon: Icon(Icons.photo_camera_outlined, color: t.muted), onPressed: () => _sendMedia(fromCamera: false)),
@@ -1387,8 +1387,8 @@ height: 240,
 child: GridView.builder(
 padding: const EdgeInsets.all(8),
 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8),
-itemCount: _emojis.length,
-itemBuilder: (_, i) => InkWell(
+itemCount: emojis.length,
+itemBuilder: (, i) => InkWell(
 onTap: () { _input.text += _emojis[i]; setState(() {}); },
 child: Center(child: Text(_emojis[i], style: const TextStyle(fontSize: 24))),
 ),
@@ -1424,8 +1424,8 @@ child: CachedNetworkImage(
 imageUrl: msg['file_url'] ?? '',
 width: 220,
 fit: BoxFit.cover,
-placeholder: (_, __) => const SizedBox(width: 220, height: 160, child: Center(child: CircularProgressIndicator())),
-errorWidget: (_, __, ___) => const Icon(Icons.broken_image),
+placeholder: (, __) => const SizedBox(width: 220, height: 160, child: Center(child: CircularProgressIndicator())),
+errorWidget: (, __, ___) => const Icon(Icons.broken_image),
 ),
 );
 break;
@@ -1529,8 +1529,8 @@ super.initState();
 _load();
 }
 Future _load() async {
-final g = await _sb.from('user_gifts').select('*').eq('recipient_id', widget.userId).eq('is_hidden', false).order('created_at', ascending: false).limit(30);
-final c = await _sb.from('gifts').select('*');
+final g = await _sb.from('user_gifts').select('').eq('recipient_id', widget.userId).eq('is_hidden', false).order('created_at', ascending: false).limit(30);
+final c = await _sb.from('gifts').select('');
 if (mounted) setState(() { _gifts = List<Map<String, dynamic>>.from(g); _catalog = List<Map<String, dynamic>>.from(c); });
 }
 Future _openDirectChat() async {
@@ -1539,12 +1539,12 @@ final r = await _sb.rpc('get_or_create_direct_chat', params: {'other_user_id': w
 final id = r as String;
 final chats = await _sb.from('chats').select('*').eq('id', id).single();
 final allParts = await _sb.from('chat_participants').select('user_id, role').eq('chat_id', id);
-final me = _sb.auth.currentUser!.id;
+final me = sb.auth.currentUser!.id;
 final myRole = (allParts as List).firstWhere((p) => p['user_id'] == me, orElse: () => {'role': 'member'})['role'];
 final c = Map<String, dynamic>.from(chats);
 c['other'] = widget.user;
 c['my_role'] = myRole;
-if (mounted) Navigator.pushReplacement(context, CupertinoPageRoute(builder: (_) => ChatScreen(chat: c)));
+if (mounted) Navigator.pushReplacement(context, CupertinoPageRoute(builder: () => ChatScreen(chat: c)));
 } catch (e) {
 if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
 }
@@ -1598,8 +1598,8 @@ GridView.builder(
 shrinkWrap: true,
 physics: const NeverScrollableScrollPhysics(),
 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 105, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
-itemCount: _gifts.length,
-itemBuilder: (_, i) {
+itemCount: gifts.length,
+itemBuilder: (, i) {
 final g = _gifts[i];
 final gift = _catalog.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
 return GlassBox(
@@ -1687,7 +1687,7 @@ child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
 onPressed: () async {
 if (!await _confirm('Удалить навсегда?')) return;
-try { await _sb.rpc('delete_chat', params: {'p_chat_id': _chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch (_) {}
+try { await _sb.rpc('delete_chat', params: {'p_chat_id': chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch () {}
 },
 child: const Text('🗑 Удалить'),
 ),
@@ -1702,7 +1702,7 @@ child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
 onPressed: () async {
 if (!await _confirm('Покинуть чат?')) return;
-try { await _sb.rpc('leave_chat', params: {'p_chat_id': _chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch (_) {}
+try { await _sb.rpc('leave_chat', params: {'p_chat_id': chat['id']}); if (mounted) Navigator.popUntil(context, (r) => r.isFirst); } catch () {}
 },
 child: const Text('🚪 Покинуть'),
 ),
@@ -1753,10 +1753,10 @@ Future _editGroup() async {
 final t = themeCtl.theme;
 final title = TextEditingController(text: _chat['title'] ?? '');
 final uname = TextEditingController(text: _chat['username'] ?? '');
-final desc = TextEditingController(text: _chat['description'] ?? '');
+final desc = TextEditingController(text: chat['description'] ?? '');
 showDialog(
 context: context,
-builder: (_) => AlertDialog(
+builder: () => AlertDialog(
 backgroundColor: t.cardSolid,
 title: const Text('Редактировать'),
 content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -1772,8 +1772,8 @@ onPressed: () async {
 Navigator.pop(context);
 try {
 await _sb.rpc('update_chat_info', params: {'p_chat_id': _chat['id'], 'p_title': title.text.trim(), 'p_description': desc.text.trim(), 'p_username': uname.text.trim()});
-_load();
-} catch (_) {}
+load();
+} catch () {}
 },
 child: const Text('Сохранить'),
 ),
@@ -1781,10 +1781,10 @@ child: const Text('Сохранить'),
 ),
 );
 }
-Future _confirm(String text) async {
+Future confirm(String text) async {
 final r = await showDialog(
 context: context,
-builder: (_) => AlertDialog(
+builder: () => AlertDialog(
 content: Text(text),
 actions: [
 TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Нет')),
@@ -1817,8 +1817,8 @@ if (q.trim().isEmpty) { setState(() => _results = []); return; }
 setState(() => _loading = true);
 try {
 final r = await _sb.rpc('global_search', params: {'p_query': q.trim()});
-if (mounted) setState(() => _results = List<Map<String, dynamic>>.from(r));
-} catch (_) {} finally {
+if (mounted) setState(() => results = List<Map<String, dynamic>>.from(r));
+} catch () {} finally {
 if (mounted) setState(() => _loading = false);
 }
 }
@@ -1849,9 +1849,9 @@ child: _loading
 : ListView.builder(
 padding: const EdgeInsets.only(bottom: 95),
 physics: const BouncingScrollPhysics(),
-itemCount: _results.length,
-itemBuilder: (_, i) {
-final r = _results[i];
+itemCount: results.length,
+itemBuilder: (, i) {
+final r = results[i];
 final isUser = r['kind'] == 'user';
 return Padding(
 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
@@ -1871,13 +1871,13 @@ trailing: isUser
 style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(horizontal: 12)),
 onPressed: () async {
 try {
-await _sb.rpc('join_public_chat', params: {'p_chat_id': r['id']});
+await sb.rpc('join_public_chat', params: {'p_chat_id': r['id']});
 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Вы вступили')));
-} catch (_) {}
+} catch () {}
 },
 child: const Text('Вступить'),
 ),
-onTap: isUser ? () => Navigator.push(context, CupertinoPageRoute(builder: (_) => OtherProfileScreen(userId: r['id'], user: r))) : null,
+onTap: isUser ? () => Navigator.push(context, CupertinoPageRoute(builder: () => OtherProfileScreen(userId: r['id'], user: r))) : null,
 ),
 ),
 );
@@ -1906,8 +1906,8 @@ _load();
 }
 Future _load() async {
 final me = _sb.auth.currentUser!.id;
-final p = await _sb.from('profiles').select('*').eq('id', me).single();
-final g = await _sb.from('user_gifts').select('*').eq('recipient_id', me).order('created_at', ascending: false).limit(60);
+final p = await _sb.from('profiles').select('').eq('id', me).single();
+final g = await _sb.from('user_gifts').select('').eq('recipient_id', me).order('created_at', ascending: false).limit(60);
 final c = await _sb.from('gifts').select('*');
 if (mounted) setState(() { _profile = p; _gifts = List.from(g); _catalog = List.from(c); });
 }
@@ -1917,7 +1917,7 @@ final f = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, 
 if (f == null) return;
 try {
 final me = _sb.auth.currentUser!.id;
-final path = 'avatars/\({me}\_\){DateTime.now().millisecondsSinceEpoch}.jpg';
+final path = 'avatars/{me}_{DateTime.now().millisecondsSinceEpoch}.jpg';
 await _sb.storage.from(AppConfig.mediaBucket).upload(path, File(f.path));
 final url = _sb.storage.from(AppConfig.mediaBucket).getPublicUrl(path);
 await _sb.from('profiles').update({'avatar_url': url}).eq('id', me);
@@ -1991,14 +1991,14 @@ child: const Text('Сохранить'),
 ),
 );
 }
-void _openThemeSettings() {
+void openThemeSettings() {
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
 isScrollControlled: true,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: (_) => StatefulBuilder(
+builder: () => StatefulBuilder(
 builder: (context, setLocal) => Padding(
 padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
 child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2057,13 +2057,13 @@ const SizedBox(height: 20),
 ),
 );
 }
-void _openExtraSettings() {
+void openExtraSettings() {
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: (_) => StatefulBuilder(
+builder: () => StatefulBuilder(
 builder: (context, setLocal) => SafeArea(
 child: Padding(
 padding: const EdgeInsets.all(16),
@@ -2102,11 +2102,11 @@ subtitle: Text('1.0.0 Native • Liquid Glass iOS 26', style: TextStyle(color: t
 ),
 );
 }
-void _openTopUp() {
+void openTopUp() {
 final t = themeCtl.theme;
 showDialog(
 context: context,
-builder: (_) => AlertDialog(
+builder: () => AlertDialog(
 backgroundColor: t.cardSolid,
 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
 title: const Text('Пополнить звёзды'),
@@ -2118,7 +2118,7 @@ title: Text('${fmtStars(p['stars'])} ★', style: TextStyle(color: t.accent, fon
 subtitle: Text(p['label']),
 trailing: Text(p['price']),
 onTap: () async {
-final url = Uri.parse('\({AppConfig.donateUrl}?amount=\){p['stars']}&comment=@\({\_profile?['username']}+\){p['stars']}+stars');
+final url = Uri.parse('AppConfig.donateUrl?amount={p['stars']}&comment=@\({_profile?['username']}+\){p['stars']}+stars');
 if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
 },
 )),
@@ -2201,8 +2201,8 @@ GridView.builder(
 shrinkWrap: true,
 physics: const NeverScrollableScrollPhysics(),
 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 100, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
-itemCount: _gifts.length,
-itemBuilder: (_, i) {
+itemCount: gifts.length,
+itemBuilder: (, i) {
 final g = _gifts[i];
 final gift = _catalog.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
 return GlassBox(
@@ -2258,7 +2258,7 @@ context: context,
 isScrollControlled: true,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: (_) => StatefulBuilder(builder: (context, setLocal) {
+builder: () => StatefulBuilder(builder: (context, setLocal) {
 return Padding(
 padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
 child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -2269,7 +2269,7 @@ height: 320,
 child: GridView.builder(
 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.4),
 itemCount: catalog.length,
-itemBuilder: (_, i) {
+itemBuilder: (, i) {
 final g = catalog[i];
 final selected = selectedCode == g['code'];
 return GestureDetector(

@@ -328,48 +328,57 @@ const AnimatedBackground({super.key, required this.theme, required this.child});
 @override
 State createState() => _AnimatedBackgroundState();
 }
-class _AnimatedBackgroundState extends State with SingleTickerProviderStateMixin {
-late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 20))..repeat(reverse: true);
-@override
-void dispose() {
-_c.dispose();
-super.dispose();
+class AnimatedBackground extends StatefulWidget {
+  final AppTheme theme;
+  final Widget child;
+  const AnimatedBackground({super.key, required this.theme, required this.child});
+  @override
+  State<AnimatedBackground> createState() => _AnimatedBackgroundState();
 }
-@override
-Widget build(BuildContext context) {
-final t = widget.theme;
-return AnimatedBuilder(
-animation: c,
-builder: (, child) {
-final v = _c.value;
-return Container(
-decoration: BoxDecoration(
-gradient: LinearGradient(
-begin: Alignment(-1 + 0.5 * v, -1 + 0.4 * v),
-end: Alignment(1 - 0.4 * v, 1 - 0.5 * v),
-colors: t.gradient,
-),
-),
-child: Stack(children: [
-Positioned(
-top: -100 + 40 * math.sin(v * math.pi * 2),
-left: -80 + 30 * math.cos(v * math.pi * 2),
-child: _Blob(color: t.accent.withOpacity(0.28)),
-),
-Positioned(
-bottom: -100 + 40 * math.cos(v * math.pi * 2),
-right: -80 + 30 * math.sin(v * math.pi * 2),
-child: _Blob(color: const Color(0xFF7C5CFF).withOpacity(0.20)),
-),
-Positioned.fill(child: child!),
-]),
-);
-},
-child: widget.child,
-);
+
+class _AnimatedBackgroundState extends State<AnimatedBackground> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 20))..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.theme;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, child) {
+        final v = _c.value;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(-1 + 0.5 * v, -1 + 0.4 * v),
+              end: Alignment(1 - 0.4 * v, 1 - 0.5 * v),
+              colors: t.gradient,
+            ),
+          ),
+          child: Stack(children: [
+            Positioned(
+              top: -100 + 40 * math.sin(v * math.pi * 2),
+              left: -80 + 30 * math.cos(v * math.pi * 2),
+              child: _Blob(color: t.accent.withOpacity(0.28)),
+            ),
+            Positioned(
+              bottom: -100 + 40 * math.cos(v * math.pi * 2),
+              right: -80 + 30 * math.sin(v * math.pi * 2),
+              child: _Blob(color: const Color(0xFF7C5CFF).withOpacity(0.20)),
+            ),
+            Positioned.fill(child: child!),
+          ]),
+        );
+      },
+      child: widget.child,
+    );
+  }
 }
-}
-class _Blob extends StatelessWidget {
 final Color color;
 const _Blob({required this.color});
 @override
@@ -688,7 +697,7 @@ labelStyle: TextStyle(color: t.muted),
 );
 }
 }
-class ChatsTab extends StatefulWidget {
+class ChatsTabState extends State<ChatsTab> {
 const ChatsTab({super.key});
 @override
 State<ChatsTab> createState() => ChatsTabState();
@@ -1329,7 +1338,7 @@ padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
 child: Row(children: [
 const Icon(Icons.fiber_manual_record, color: Colors.redAccent, size: 14),
 const SizedBox(width: 8),
-if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не удалось воспроизвести ГС: $e')));
+Text('Запись ГС: ${crecSecs ~/ 60}:${(crecSecs % 60).toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700)),
 const Spacer(),
 IconButton(icon: const Icon(Icons.close, color: Colors.redAccent), onPressed: () => cstopRecording(send: false)),
 IconButton(icon: const Icon(Icons.send_rounded, color: Colors.green), onPressed: () => cstopRecording(send: true)),

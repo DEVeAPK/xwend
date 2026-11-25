@@ -1347,7 +1347,6 @@ class ChatScreenState extends State<ChatScreen> {
   final Set<String> _typingUsers = {};
   DateTime _lastTypingSent = DateTime.fromMillisecondsSinceEpoch(0);
 
-  // Карта реакций: message_id -> { emoji -> count }
   final Map<String, Map<String, int>> _reactions = {};
   
   late ConfettiController _confettiController;
@@ -2048,7 +2047,6 @@ class ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          // КОНФЕТТИ
           Align(
             alignment: Alignment.topCenter,
             child: ConfettiWidget(
@@ -2235,6 +2233,1245 @@ class MessageBubble extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class OtherProfileScreen extends StatefulWidget {
+  final String userId;
+  final Map<String, dynamic> user;
+  const OtherProfileScreen({super.key, required this.userId, required this.user});
+
+  @override
+  State<OtherProfileScreen> createState() => OtherProfileScreenState();
+}
+
+class OtherProfileScreenState extends State<OtherProfileScreen> {
+  final sb = Supabase.instance.client;
+  List<Map<String, dynamic>> giftsList = [];
+  List<Map<String, dynamic>> catalogList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadProfile();
+  }
+
+  Future<void> loadProfile() async {
+    final g = await sb
+        .from('user_gifts')
+        .select('')
+        .eq('recipient_id', widget.userId)
+        .eq('is_hidden', false)
+        .order('created_at', ascending: false)
+        .limit(30);
+    final c = await sb.from('gifts').select('');
+    if (mounted) {
+      setState(() {
+        giftsList = List<Map<String, dynamic>>.from(g);
+        catalogList = List<Map<String, dynamic>>.from(c);
+      });
+    }
+  }
+
+  Future<void> openDirectChat() async {
+    try {
+      final r = await sb.rpc('get_or_create_direct_chat', params: {'other_user_id': widget.userId});
+      final id = r as String;
+      final chats = await sb.from('chats').select('*').eq('id', id).single();
+      final allParts = await sb.from('chat_participants').select('user_id, role').eq('chat_id', id);
+      final me = sb.auth.currentUser!.id;
+      final myRole = (allParts as List).firstWhere((p) => p['user_id'] == me, orElse: () => {'role': 'member'})['role'];
+      final c = Map<String, dynamic>.from(chats);
+      c['other'] = widget.user;
+      c['my_role'] = myRole;
+      if (mounted) {
+        Navigator.pushReplacement(context, CupertinoPageRoute(builder: (ctx) => ChatScreen(chat: c)));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = themeCtl.theme;
+    return Scaffold(
+      body: AnimatedBackground(
+        theme: t,
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(children: [
+                AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: t.text),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(children: [
+                      GlassBox(
+                        theme: t,
+                        blur: true,
+                        radius: BorderRadius.circular(28),
+                        padding: const EdgeInsets.all(20),
+                        child: Column(children: [
+                          AvatarView(
+                            name: widget.user['name'],
+                            username: widget.user['username'],
+                            url: widget.user['avatar_url'],
+                            color: widget.user['avatar_color'],
+                            size: 88,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            widget.user['name'] ?? 'Без имени',
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text),
+                          ),
+                          Text(
+                            '@' + (widget.user['username'] ?? '').toString(),
+                            style: TextStyle(color: t.accent, fontWeight: FontWeight.w600),
+                          ),
+                          if ((widget.user['bio'] ?? '').toString().isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 10),
+                              child: Text(
+                                widget.user['bio'],
+                                style: TextStyle(color: t.muted),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          Row(children: [
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: t.accent),
+                                onPressed: openDirectChat,
+                                child: const Text('Написать'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  await GiftShopDialog.open(
+                                    context,
+                                    recipientId: widget.userId,
+                                    recipientName: widget.user['name'] ?? widget.user['username'] ?? '',
+                                  );
+                                  loadProfile();
+                                },
+                                child: const Text('🎁 Подарить'),
+                              ),
+                            ),
+                          ]),
+                        ]),
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Подарки (' + giftsList.length.toString() + ')',
+                          style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (giftsList.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Text('Подарков пока нет', style: TextStyle(color: t.muted)),
+                        )
+                      else
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 105,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 0.95,
+                          ),
+                          itemCount: giftsList.length,
+                          itemBuilder: (ctx, i) {
+                            final g = giftsList[i];
+                            final gift = catalogList.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
+                            return GlassBox(
+                              theme: t,
+                              blur: false,
+                              radius: BorderRadius.circular(16),
+                              padding: const EdgeInsets.all(6),
+                              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                Text(gift['emoji'] ?? '🎁', style: const TextStyle(fontSize: 24)),
+                                const SizedBox(height: 3),
+                                Text(
+                                  gift['title'] ?? 'Подарок',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: t.text),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ]),
+                            );
+                          },
+                        ),
+                      const SizedBox(height: 20),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class GroupScreen extends StatefulWidget {
+  final Map<String, dynamic> chat;
+  const GroupScreen({super.key, required this.chat});
+
+  @override
+  State<GroupScreen> createState() => GroupScreenState();
+}
+
+class GroupScreenState extends State<GroupScreen> {
+  final sb = Supabase.instance.client;
+  List<Map<String, dynamic>> membersList = [];
+  Map<String, dynamic> chatData = {};
+
+  @override
+  void initState() {
+    super.initState();
+    chatData = Map.of(widget.chat);
+    loadGroup();
+  }
+
+  Future<void> loadGroup() async {
+    final parts = await sb
+        .from('chat_participants')
+        .select('user_id, role, profiles:user_id(id, username, name, avatar_color, avatar_url)')
+        .eq('chat_id', chatData['id']);
+    final c = await sb.from('chats').select('*').eq('id', chatData['id']).single();
+    if (mounted) {
+      setState(() {
+        membersList = List<Map<String, dynamic>>.from(parts);
+        chatData = Map<String, dynamic>.from(c);
+      });
+    }
+  }
+
+  String get myRole => chatData['my_role'] ?? 'member';
+  bool get canEdit => myRole == 'owner' || myRole == 'admin';
+  bool get isOwner => myRole == 'owner';
+
+  @override
+  Widget build(BuildContext context) {
+    final t = themeCtl.theme;
+    return Scaffold(
+      body: AnimatedBackground(
+        theme: t,
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(children: [
+                AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: t.text),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  title: Text('Информация', style: TextStyle(color: t.text)),
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      GlassBox(
+                        theme: t,
+                        blur: true,
+                        radius: BorderRadius.circular(28),
+                        padding: const EdgeInsets.all(20),
+                        child: Column(children: [
+                          AvatarView(
+                            name: chatData['title'],
+                            username: chatData['username'],
+                            url: chatData['avatar_url'],
+                            size: 88,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            chatData['title'] ?? 'Без названия',
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text),
+                          ),
+                          if (chatData['username'] != null)
+                            Text('@' + chatData['username'].toString(), style: TextStyle(color: t.accent)),
+                          Text(
+                            chatData['type'] == 'channel' ? 'Канал' : 'Группа',
+                            style: TextStyle(color: t.muted, fontSize: 12),
+                          ),
+                          const SizedBox(height: 16),
+                          if (canEdit)
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: t.accent),
+                                onPressed: editGroup,
+                                child: const Text('✏️ Редактировать'),
+                              ),
+                            ),
+                          if (isOwner)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: FilledButton(
+                                  style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+                                  onPressed: () async {
+                                    if (!await confirmAction('Удалить навсегда?')) return;
+                                    try {
+                                      await sb.rpc('delete_chat', params: {'p_chat_id': chatData['id']});
+                                      if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
+                                    } catch (e) {}
+                                  },
+                                  child: const Text('🗑 Удалить'),
+                                ),
+                              ),
+                            ),
+                          if (!isOwner)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: FilledButton(
+                                  style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+                                  onPressed: () async {
+                                    if (!await confirmAction('Покинуть чат?')) return;
+                                    try {
+                                      await sb.rpc('leave_chat', params: {'p_chat_id': chatData['id']});
+                                      if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
+                                    } catch (e) {}
+                                  },
+                                  child: const Text('🚪 Покинуть'),
+                                ),
+                              ),
+                            ),
+                        ]),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Участники (' + membersList.length.toString() + ')',
+                        style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      ...membersList.map((m) {
+                        final p = m['profiles'] ?? {};
+                        final role = m['role'] ?? 'member';
+                        final roleLabel = role == 'owner' ? 'Владелец' : role == 'admin' ? 'Админ' : 'Участник';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: GlassBox(
+                            theme: t,
+                            blur: false,
+                            radius: BorderRadius.circular(18),
+                            padding: const EdgeInsets.all(10),
+                            child: Row(children: [
+                              AvatarView(
+                                name: p['name'],
+                                username: p['username'],
+                                url: p['avatar_url'],
+                                color: p['avatar_color'],
+                                size: 40,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text(
+                                    p['name'] ?? p['username'] ?? 'Участник',
+                                    style: TextStyle(fontWeight: FontWeight.w600, color: t.text),
+                                  ),
+                                  Text(
+                                    '@' + (p['username'] ?? '').toString(),
+                                    style: TextStyle(fontSize: 11.5, color: t.muted),
+                                  ),
+                                ]),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: role == 'owner'
+                                      ? Colors.amber
+                                      : (role == 'admin' ? const Color(0xFF7C5CFF) : t.accent.withOpacity(0.25)),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  roleLabel,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: role == 'owner' || role == 'admin' ? Colors.white : t.text,
+                                  ),
+                                ),
+                              ),
+                            ]),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> editGroup() async {
+    final t = themeCtl.theme;
+    final titleCtrl = TextEditingController(text: chatData['title'] ?? '');
+    final unameCtrl = TextEditingController(text: chatData['username'] ?? '');
+    final descCtrl = TextEditingController(text: chatData['description'] ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: t.cardSolid,
+        title: const Text('Редактировать'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Название')),
+          TextField(controller: unameCtrl, decoration: const InputDecoration(labelText: '@username')),
+          TextField(controller: descCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Описание')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: t.accent),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await sb.rpc('update_chat_info', params: {
+                  'p_chat_id': chatData['id'],
+                  'p_title': titleCtrl.text.trim(),
+                  'p_description': descCtrl.text.trim(),
+                  'p_username': unameCtrl.text.trim(),
+                });
+                loadGroup();
+              } catch (e) {}
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> confirmAction(String text) async {
+    final r = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: Text(text),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Нет')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Да')),
+        ],
+      ),
+    );
+    return r ?? false;
+  }
+}
+
+class SearchTab extends StatefulWidget {
+  const SearchTab({super.key});
+
+  @override
+  State<SearchTab> createState() => SearchTabState();
+}
+
+class SearchTabState extends State<SearchTab> {
+  final sb = Supabase.instance.client;
+  final queryCtrl = TextEditingController();
+  List<Map<String, dynamic>> resultsList = [];
+  Timer? debTimer;
+  bool loading = false;
+
+  @override
+  void dispose() {
+    queryCtrl.dispose();
+    debTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> runSearch(String q) async {
+    if (q.trim().isEmpty) {
+      setState(() => resultsList = []);
+      return;
+    }
+    setState(() => loading = true);
+    try {
+      final r = await sb.rpc('global_search', params: {'p_query': q.trim()});
+      if (mounted) setState(() => resultsList = List<Map<String, dynamic>>.from(r));
+    } catch (e) {
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = themeCtl.theme;
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.all(12),
+        child: GlassBox(
+          theme: t,
+          blur: true,
+          radius: BorderRadius.circular(22),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          child: TextField(
+            controller: queryCtrl,
+            style: TextStyle(color: t.text),
+            decoration: const InputDecoration(
+              hintText: 'Поиск людей, групп, каналов',
+              border: InputBorder.none,
+              icon: Icon(Icons.search_rounded),
+            ),
+            onChanged: (v) {
+              debTimer?.cancel();
+              debTimer = Timer(const Duration(milliseconds: 300), () => runSearch(v));
+            },
+          ),
+        ),
+      ),
+      Expanded(
+        child: loading
+            ? Center(child: CircularProgressIndicator(color: t.accent))
+            : resultsList.isEmpty
+                ? Center(child: Text('Введите @username или название', style: TextStyle(color: t.muted)))
+                : ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 95),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: resultsList.length,
+                    itemBuilder: (ctx, i) {
+                      final r = resultsList[i];
+                      final isUser = r['kind'] == 'user';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
+                        child: GlassBox(
+                          theme: t,
+                          blur: false,
+                          radius: BorderRadius.circular(20),
+                          child: ListTile(
+                            leading: isUser
+                                ? AvatarView(
+                                    name: r['name'],
+                                    username: r['username'],
+                                    url: r['avatar_url'],
+                                    color: r['avatar_color'],
+                                    size: 42,
+                                  )
+                                : CircleAvatar(
+                                    backgroundColor: colorFor(r['username']),
+                                    child: Text(r['bio'] == 'channel' ? '📢' : '👥'),
+                                  ),
+                            title: Text(r['name'] ?? 'Без имени', style: TextStyle(color: t.text, fontWeight: FontWeight.w700)),
+                            subtitle: Text(
+                              isUser
+                                  ? '@' + (r['username'] ?? '').toString()
+                                  : (r['bio'] == 'channel' ? 'Публичный канал' : 'Публичная группа'),
+                              style: TextStyle(color: t.muted, fontSize: 12),
+                            ),
+                            trailing: isUser
+                                ? null
+                                : FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: t.accent,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    ),
+                                    onPressed: () async {
+                                      try {
+                                        await sb.rpc('join_public_chat', params: {'p_chat_id': r['id']});
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Вы вступили')),
+                                          );
+                                        }
+                                      } catch (e) {}
+                                    },
+                                    child: const Text('Вступить'),
+                                  ),
+                            onTap: isUser
+                                ? () => Navigator.push(
+                                      context,
+                                      CupertinoPageRoute(builder: (c2) => OtherProfileScreen(userId: r['id'], user: r)),
+                                    )
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+      ),
+    ]);
+  }
+}
+
+class ProfileTab extends StatefulWidget {
+  const ProfileTab({super.key});
+
+  @override
+  State<ProfileTab> createState() => ProfileTabState();
+}
+
+class ProfileTabState extends State<ProfileTab> {
+  final sb = Supabase.instance.client;
+  Map<String, dynamic>? profileData;
+  List<Map<String, dynamic>> giftsList = [];
+  List<Map<String, dynamic>> catalogList = [];
+  bool vibroOn = true;
+  bool hideOnline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadMyProfile();
+  }
+
+  Future<void> loadMyProfile() async {
+    final me = sb.auth.currentUser!.id;
+    final p = await sb.from('profiles').select('').eq('id', me).single();
+    final g = await sb.from('user_gifts').select('').eq('recipient_id', me).order('created_at', ascending: false).limit(60);
+    final c = await sb.from('gifts').select('*');
+    if (mounted) {
+      setState(() {
+        profileData = p;
+        giftsList = List.from(g);
+        catalogList = List.from(c);
+      });
+    }
+  }
+
+  Future<void> changeAvatar() async {
+    final picker = ImagePicker();
+    final f = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 400, maxHeight: 400);
+    if (f == null) return;
+    try {
+      final me = sb.auth.currentUser!.id;
+      final path = 'avatars/' + me + '_' + DateTime.now().millisecondsSinceEpoch.toString() + '.jpg';
+      await sb.storage.from(AppConfig.mediaBucket).upload(path, File(f.path));
+      final url = sb.storage.from(AppConfig.mediaBucket).getPublicUrl(path);
+      await sb.from('profiles').update({'avatar_url': url}).eq('id', me);
+      loadMyProfile();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: ' + e.toString())));
+      }
+    }
+  }
+
+  void editProfile() {
+    final t = themeCtl.theme;
+    final p = profileData;
+    if (p == null) return;
+    final nameCtrl = TextEditingController(text: p['name'] ?? '');
+    final userCtrl = TextEditingController(text: p['username'] ?? '');
+    final bioCtrl = TextEditingController(text: p['bio'] ?? '');
+    String selectedColor = p['avatar_color'] ?? '#10B981';
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          backgroundColor: t.cardSolid,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text('Редактировать профиль', style: TextStyle(color: t.text, fontWeight: FontWeight.w700)),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              TextField(controller: nameCtrl, style: TextStyle(color: t.text), decoration: const InputDecoration(labelText: 'Имя')),
+              const SizedBox(height: 8),
+              TextField(controller: userCtrl, style: TextStyle(color: t.text), decoration: const InputDecoration(labelText: '@username')),
+              const SizedBox(height: 8),
+              TextField(
+                controller: bioCtrl,
+                maxLines: 3,
+                style: TextStyle(color: t.text),
+                decoration: const InputDecoration(labelText: 'О себе (Bio)'),
+              ),
+              const SizedBox(height: 14),
+              Text('Цвет аватара', style: TextStyle(color: t.muted, fontSize: 12)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: ['#10B981', '#7C5CFF', '#3B82F6', '#FF6B6B', '#F59E0B', '#EC4899'].map((hex) {
+                  final active = selectedColor.toUpperCase() == hex;
+                  return GestureDetector(
+                    onTap: () => setLocal(() => selectedColor = hex),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: hexColor(hex),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: active ? Colors.white : Colors.transparent, width: 2.5),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: t.accent),
+              onPressed: () async {
+                final newUser = userCtrl.text.trim().toLowerCase().replaceAll('@', '');
+                if (newUser.isEmpty) return;
+                Navigator.pop(ctx);
+                try {
+                  final me = sb.auth.currentUser!.id;
+                  await sb.from('profiles').update({
+                    'name': nameCtrl.text.trim(),
+                    'username': newUser,
+                    'bio': bioCtrl.text.trim(),
+                    'avatar_color': selectedColor,
+                  }).eq('id', me);
+                  loadMyProfile();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Профиль обновлён')));
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: ' + e.toString())));
+                  }
+                }
+              },
+              child: const Text('Сохранить'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void openThemeSettings() {
+    final t = themeCtl.theme;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: t.cardSolid,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setLocal) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Оформление и темы', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: t.text)),
+            const SizedBox(height: 12),
+            Text('Стиль стекла', style: TextStyle(color: t.muted, fontSize: 12)),
+            const SizedBox(height: 6),
+            SegmentedButton<ThemeMode3>(
+              segments: const [
+                ButtonSegment(value: ThemeMode3.liquid, label: Text('Liquid iOS 26')),
+                ButtonSegment(value: ThemeMode3.frosted, label: Text('Матовое')),
+                ButtonSegment(value: ThemeMode3.solid, label: Text('Плоский')),
+              ],
+              selected: {themeCtl.theme.mode},
+              onSelectionChanged: (s) {
+                themeCtl.update(themeCtl.theme.copyWith(mode: s.first));
+                setLocal(() {});
+                setState(() {});
+              },
+            ),
+            const SizedBox(height: 12),
+            Text('База', style: TextStyle(color: t.muted, fontSize: 12)),
+            const SizedBox(height: 6),
+            SegmentedButton<Brightness>(
+              segments: const [
+                ButtonSegment(value: Brightness.dark, label: Text('Тёмная')),
+                ButtonSegment(value: Brightness.light, label: Text('Светлая')),
+              ],
+              selected: {themeCtl.theme.base},
+              onSelectionChanged: (s) {
+                themeCtl.update(themeCtl.theme.copyWith(base: s.first));
+                setLocal(() {});
+                setState(() {});
+              },
+            ),
+            const SizedBox(height: 12),
+            Text('Фон-градиент', style: TextStyle(color: t.muted, fontSize: 12)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              children: List.generate(7, (idx) {
+                final names = ['База', 'Океан', 'Закат', 'Космос', 'Изумруд', 'Неон', 'Лёд'];
+                return ChoiceChip(
+                  label: Text(names[idx]),
+                  selected: themeCtl.theme.bgIndex == idx,
+                  onSelected: (v) {
+                    themeCtl.update(themeCtl.theme.copyWith(bgIndex: idx));
+                    setLocal(() {});
+                    setState(() {});
+                  },
+                );
+              }),
+            ),
+            const SizedBox(height: 12),
+            Text('Акцент', style: TextStyle(color: t.muted, fontSize: 12)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              children: [
+                ...kAccents.map((c) => GestureDetector(
+                  onTap: () {
+                    themeCtl.update(themeCtl.theme.copyWith(accent: c));
+                    setLocal(() {});
+                    setState(() {});
+                  },
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: c,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: themeCtl.theme.accent == c ? Colors.white : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                )),
+                GestureDetector(
+                  onTap: () async {
+                    Color picked = themeCtl.theme.accent;
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: t.cardSolid,
+                        title: const Text('Свой акцент'),
+                        content: SingleChildScrollView(
+                          child: ColorPicker(
+                            pickerColor: themeCtl.theme.accent,
+                            onColorChanged: (c) => picked = c,
+                            enableAlpha: false,
+                            hexInputBar: true,
+                          ),
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Выбрать')),
+                        ],
+                      ),
+                    );
+                    if (ok == true) {
+                      themeCtl.update(themeCtl.theme.copyWith(accent: picked));
+                      setLocal(() {});
+                      setState(() {});
+                    }
+                  },
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: const SweepGradient(colors: [
+                        Colors.red, Colors.orange, Colors.yellow, Colors.green, Colors.blue, Colors.purple, Colors.red,
+                      ]),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.colorize, size: 16, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void openExtraSettings() {
+    final t = themeCtl.theme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: t.cardSolid,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setLocal) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Настройки приложения', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: t.text)),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                title: Text('Тактильный отклик (вибрация)', style: TextStyle(color: t.text)),
+                value: vibroOn,
+                activeColor: t.accent,
+                onChanged: (v) {
+                  setLocal(() => vibroOn = v);
+                  setState(() => vibroOn = v);
+                },
+              ),
+              SwitchListTile(
+                title: Text('Скрывать время последнего входа', style: TextStyle(color: t.text)),
+                value: hideOnline,
+                activeColor: t.accent,
+                onChanged: (v) {
+                  setLocal(() => hideOnline = v);
+                  setState(() => hideOnline = v);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.cleaning_services_outlined, color: t.accent),
+                title: Text('Очистить кэш изображений', style: TextStyle(color: t.text)),
+                onTap: () {
+                  PaintingBinding.instance.imageCache.clear();
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Кэш успешно очищен')));
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.info_outline, color: t.muted),
+                title: Text('Версия Xwend', style: TextStyle(color: t.text)),
+                subtitle: Text('1.0.0 Native • Liquid Glass iOS 26', style: TextStyle(color: t.muted, fontSize: 12)),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void openTopUp() {
+    final t = themeCtl.theme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: t.cardSolid,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Пополнить звёзды'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(
+            'Укажите @' + (profileData?['username'] ?? '').toString() + ' в комментарии к донату',
+            style: TextStyle(fontSize: 12, color: t.muted),
+          ),
+          const SizedBox(height: 12),
+          ...AppConfig.donatePackages.map((p) => ListTile(
+            title: Text(fmtStars(p['stars']) + ' ★', style: TextStyle(color: t.accent, fontWeight: FontWeight.w700)),
+            subtitle: Text(p['label']),
+            trailing: Text(p['price']),
+            onTap: () async {
+              final url = Uri.parse(
+                AppConfig.donateUrl +
+                    '?amount=' +
+                    p['stars'].toString() +
+                    '&comment=@' +
+                    (profileData?['username'] ?? '').toString() +
+                    '+' +
+                    p['stars'].toString() +
+                    '+stars',
+              );
+              if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
+            },
+          )),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = themeCtl.theme;
+    final p = profileData;
+    if (p == null) return Center(child: CircularProgressIndicator(color: t.accent));
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+      physics: const BouncingScrollPhysics(),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        GlassBox(
+          theme: t,
+          blur: true,
+          padding: const EdgeInsets.all(20),
+          radius: BorderRadius.circular(28),
+          child: Column(children: [
+            Stack(children: [
+              AvatarView(
+                name: p['name'],
+                username: p['username'],
+                url: p['avatar_url'],
+                color: p['avatar_color'],
+                size: 88,
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: GestureDetector(
+                  onTap: changeAvatar,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: t.accent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: t.cardSolid, width: 2),
+                    ),
+                    child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            Text(p['name'] ?? 'Без имени', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
+            Text('@' + (p['username'] ?? '').toString(), style: TextStyle(color: t.accent, fontWeight: FontWeight.w600)),
+            if ((p['bio'] ?? '').toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(p['bio'], style: TextStyle(color: t.muted, fontSize: 13), textAlign: TextAlign.center),
+              ),
+            const SizedBox(height: 14),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.amber.withOpacity(0.45)),
+                ),
+                child: Text(
+                  '⭐ ' + fmtStars(p['stars']),
+                  style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: t.accent,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                onPressed: openTopUp,
+                child: const Text('Пополнить ★', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () async {
+                  await GiftShopDialog.open(
+                    context,
+                    recipientId: sb.auth.currentUser!.id,
+                    recipientName: p['name'] ?? 'себе',
+                    selfGift: true,
+                  );
+                  loadMyProfile();
+                },
+                child: const Text(
+                  '🎁 Подарить себе ★',
+                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ]),
+        ),
+        if (giftsList.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              'Подарки (' + giftsList.length.toString() + ')',
+              style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(height: 6),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 100,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 0.95,
+            ),
+            itemCount: giftsList.length,
+            itemBuilder: (ctx, i) {
+              final g = giftsList[i];
+              final gift = catalogList.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
+              return GlassBox(
+                theme: t,
+                blur: false,
+                radius: BorderRadius.circular(16),
+                padding: const EdgeInsets.all(6),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(gift['emoji'] ?? '🎁', style: const TextStyle(fontSize: 24)),
+                  const SizedBox(height: 3),
+                  Text(
+                    gift['title'] ?? 'Подарок',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: t.text),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ]),
+              );
+            },
+          ),
+        ],
+        const SizedBox(height: 12),
+        menuRow('✏️ Редактировать профиль', editProfile),
+        menuRow('🎨 Оформление и темы (Liquid iOS 26)', openThemeSettings),
+        menuRow('⚙️ Настройки приложения и приватность', openExtraSettings),
+        menuRow('🚪 Выйти из аккаунта', () async {
+          await sb.auth.signOut();
+        }),
+      ]),
+    );
+  }
+
+  Widget menuRow(String label, VoidCallback onTap) {
+    final t = themeCtl.theme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 7),
+      child: GlassBox(
+        theme: t,
+        blur: false,
+        radius: BorderRadius.circular(18),
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(label, style: TextStyle(color: t.text, fontSize: 14.5, fontWeight: FontWeight.w600)),
+          trailing: Icon(Icons.chevron_right_rounded, color: t.muted, size: 22),
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
+}
+
+class GiftShopDialog {
+  static Future<void> open(
+    BuildContext context, {
+    required String recipientId,
+    required String recipientName,
+    bool selfGift = false,
+  }) async {
+    final sb = Supabase.instance.client;
+    final t = themeCtl.theme;
+    final catalog = List<Map<String, dynamic>>.from(
+      await sb.from('gifts').select('*').order('sort_order', ascending: true),
+    );
+    if (!context.mounted) return;
+    String? selectedCode;
+    final noteCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: t.cardSolid,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+      builder: (ctx) => StatefulBuilder(builder: (context, setLocal) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(
+              'Подарок для ' + recipientName,
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: t.text),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 320,
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 1.4,
+                ),
+                itemCount: catalog.length,
+                itemBuilder: (c2, i) {
+                  final g = catalog[i];
+                  final selected = selectedCode == g['code'];
+                  return GestureDetector(
+                    onTap: () => setLocal(() => selectedCode = g['code']),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: t.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: selected ? Colors.amber : t.border,
+                          width: selected ? 2 : 1,
+                        ),
+                      ),
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text(g['emoji'] ?? '🎁', style: const TextStyle(fontSize: 34)),
+                        const SizedBox(height: 4),
+                        Text(
+                          g['title'] ?? 'Подарок',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: t.text),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          fmtStars(g['price']) + ' ★',
+                          style: const TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.w700),
+                        ),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+            ),
+            TextField(controller: noteCtrl, decoration: const InputDecoration(labelText: 'Подпись к подарку')),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
+                onPressed: selectedCode == null
+                    ? null
+                    : () async {
+                        try {
+                          await sb.rpc('send_gift', params: {
+                            'p_recipient': recipientId,
+                            'p_gift_code': selectedCode,
+                            'p_note': noteCtrl.text.trim(),
+                            'p_chat_id': null,
+                          });
+                          if (context.mounted) Navigator.pop(ctx);
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                          }
+                        }
+                      },
+                child: const Text('Отправить'),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ]),
+        );
+      }),
     );
   }
 }

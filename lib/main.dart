@@ -1336,7 +1336,7 @@ const OtherProfileScreen({super.key, required this.userId, required this.user});
 @override
 State createState() => OtherProfileScreenState();
 }
-class OtherProfileScreenState extends State {
+class OtherProfileScreenState extends State<OtherProfileScreen> {
 final sb = Supabase.instance.client;
 List<Map<String, dynamic>> giftsList = [];
 List<Map<String, dynamic>> catalogList = [];
@@ -1460,7 +1460,7 @@ const GroupScreen({super.key, required this.chat});
 @override
 State createState() => GroupScreenState();
 }
-class GroupScreenState extends State {
+class GroupScreenState extends State<GroupScreen> {
 final sb = Supabase.instance.client;
 List<Map<String, dynamic>> membersList = [];
 Map<String, dynamic> chatData = {};
@@ -2186,3 +2186,4 @@ const SizedBox(height: 20),
 );
 }
 }
+ 

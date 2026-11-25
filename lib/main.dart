@@ -57,22 +57,11 @@ case 6: return const [Color(0xFFDCE7F7), Color(0xFFEDF3FC), Color(0xFFC9D9F0)];
 default: return [bg, Color.lerp(bg, accent, 0.08)!];
 }
 }
-AppTheme copyWith({ThemeMode3? mode, Brightness? base, Color? accent, int? bgIndex}) {
-return AppTheme(
-mode: mode ?? this.mode,
-base: base ?? this.base,
-accent: accent ?? this.accent,
-bgIndex: bgIndex ?? this.bgIndex,
-);
-}
+AppTheme copyWith({ThemeMode3? mode, Brightness? base, Color? accent, int? bgIndex}) =>
+AppTheme(mode: mode ?? this.mode, base: base ?? this.base, accent: accent ?? this.accent, bgIndex: bgIndex ?? this.bgIndex);
 Future save() async {
 final p = await SharedPreferences.getInstance();
-await p.setString('xwend_theme', jsonEncode({
-'mode': mode.index,
-'base': base.index,
-'accent': accent.toARGB32(),
-'bgIndex': bgIndex,
-}));
+await p.setString('xwend_theme', jsonEncode({'mode': mode.index, 'base': base.index, 'accent': accent.toARGB32(), 'bgIndex': bgIndex}));
 }
 static Future load() async {
 final p = await SharedPreferences.getInstance();
@@ -80,37 +69,22 @@ final raw = p.getString('xwend_theme');
 if (raw == null) return const AppTheme();
 try {
 final m = jsonDecode(raw);
-return AppTheme(
-mode: ThemeMode3.values[m['mode'] ?? 0],
-base: Brightness.values[m['base'] ?? 1],
-accent: Color(m['accent'] ?? 0xFF10B981),
-bgIndex: m['bgIndex'] ?? 1,
-);
-} catch (_) {
+return AppTheme(mode: ThemeMode3.values[m['mode'] ?? 0], base: Brightness.values[m['base'] ?? 1], accent: Color(m['accent'] ?? 0xFF10B981), bgIndex: m['bgIndex'] ?? 1);
+} catch (e) {
 return const AppTheme();
 }
 }
 }
 class ThemeCtl extends ChangeNotifier {
-AppTheme _theme = const AppTheme();
-AppTheme get theme => _theme;
-Future init() async {
-_theme = await AppTheme.load();
-notifyListeners();
-}
-Future update(AppTheme t) async {
-_theme = t;
-await t.save();
-notifyListeners();
-}
+AppTheme currentTheme = const AppTheme();
+AppTheme get theme => currentTheme;
+Future init() async { currentTheme = await AppTheme.load(); notifyListeners(); }
+Future update(AppTheme t) async { currentTheme = t; await t.save(); notifyListeners(); }
 }
 final themeCtl = ThemeCtl();
 Future main() async {
 WidgetsFlutterBinding.ensureInitialized();
-await Supabase.initialize(
-url: AppConfig.supabaseUrl,
-anonKey: AppConfig.supabaseAnonKey,
-);
+await Supabase.initialize(url: AppConfig.supabaseUrl, anonKey: AppConfig.supabaseAnonKey);
 await themeCtl.init();
 SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 runApp(const XwendApp());
@@ -121,7 +95,7 @@ const XwendApp({super.key});
 Widget build(BuildContext context) {
 return AnimatedBuilder(
 animation: themeCtl,
-builder: (_, __) {
+builder: (ctx, child) {
 final t = themeCtl.theme;
 return MaterialApp(
 title: 'Xwend',
@@ -147,23 +121,20 @@ home: const RootGate(),
 class RootGate extends StatefulWidget {
 const RootGate({super.key});
 @override
-State createState() => _RootGateState();
+State createState() => RootGateState();
 }
-class _RootGateState extends State {
-Session? _session;
+class RootGateState extends State {
+Session? session;
 @override
 void initState() {
 super.initState();
-_session = Supabase.instance.client.auth.currentSession;
+session = Supabase.instance.client.auth.currentSession;
 Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-if (mounted) setState(() => _session = data.session);
+if (mounted) setState(() => session = data.session);
 });
 }
 @override
-Widget build(BuildContext context) {
-if (_session == null) return const AuthScreen();
-return const HomeShell();
-}
+Widget build(BuildContext context) => session == null ? const AuthScreen() : const HomeShell();
 }
 class XwendLogo extends StatefulWidget {
 final double size;
@@ -171,32 +142,29 @@ final Color accent;
 final bool pulse;
 const XwendLogo({super.key, this.size = 28, required this.accent, this.pulse = true});
 @override
-State createState() => _XwendLogoState();
+State createState() => XwendLogoState();
 }
-class _XwendLogoState extends State with SingleTickerProviderStateMixin {
-late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))..repeat(reverse: true);
+class XwendLogoState extends State with SingleTickerProviderStateMixin {
+late final AnimationController anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))..repeat(reverse: true);
 @override
-void dispose() {
-_c.dispose();
-super.dispose();
-}
+void dispose() { anim.dispose(); super.dispose(); }
 @override
 Widget build(BuildContext context) {
 return SizedBox(
 width: widget.size,
 height: widget.size,
 child: CustomPaint(
-painter: _LogoPainter(widget.accent),
+painter: LogoPainter(widget.accent),
 child: widget.pulse
 ? AnimatedBuilder(
-animation: c,
-builder: (, __) => Align(
+animation: anim,
+builder: (ctx, ch) => Align(
 alignment: const Alignment(0.85, -0.85),
 child: Container(
 width: widget.size * 0.14,
 height: widget.size * 0.14,
 decoration: BoxDecoration(
-color: widget.accent.withOpacity(0.35 + 0.55 * (1 - _c.value)),
+color: widget.accent.withOpacity(0.35 + 0.55 * (1 - anim.value)),
 shape: BoxShape.circle,
 boxShadow: [BoxShadow(color: widget.accent.withOpacity(0.6), blurRadius: 6)],
 ),
@@ -208,37 +176,26 @@ boxShadow: [BoxShadow(color: widget.accent.withOpacity(0.6), blurRadius: 6)],
 );
 }
 }
-class _LogoPainter extends CustomPainter {
+class LogoPainter extends CustomPainter {
 final Color accent;
-_LogoPainter(this.accent);
+LogoPainter(this.accent);
 @override
 void paint(Canvas canvas, Size size) {
 final s = size.width / 32.0;
-final bg = Paint()..color = accent.withOpacity(0.22);
-final rrect = RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), Radius.circular(9 * s));
-canvas.drawRRect(rrect, bg);
-final p = Paint()
-..color = accent
-..strokeWidth = 3 * s
-..strokeCap = StrokeCap.round
-..style = PaintingStyle.stroke;
+canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), Radius.circular(9 * s)), Paint()..color = accent.withOpacity(0.22));
+final p = Paint()..color = accent..strokeWidth = 3 * s..strokeCap = StrokeCap.round..style = PaintingStyle.stroke;
 canvas.drawLine(Offset(9 * s, 9 * s), Offset(23 * s, 23 * s), p);
 canvas.drawLine(Offset(23 * s, 9 * s), Offset(9 * s, 23 * s), p);
 }
 @override
-bool shouldRepaint(covariant _LogoPainter old) => old.accent != accent;
+bool shouldRepaint(covariant LogoPainter old) => old.accent != accent;
 }
-String fmtStars(num? n) {
-final v = (n ?? 0).toInt();
-return v.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ' ');
-}
+String fmtStars(num? n) => (n ?? 0).toInt().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ' ');
 String fmtTime(String? iso) {
 if (iso == null) return '';
 final d = DateTime.parse(iso).toLocal();
 final now = DateTime.now();
-if (d.year == now.year && d.month == now.month && d.day == now.day) {
-return DateFormat('HH:mm').format(d);
-}
+if (d.year == now.year && d.month == now.month && d.day == now.day) return DateFormat('HH:mm').format(d);
 final y = now.subtract(const Duration(days: 1));
 if (d.year == y.year && d.month == y.month && d.day == y.day) return 'вчера';
 return DateFormat('dd.MM').format(d);
@@ -246,32 +203,21 @@ return DateFormat('dd.MM').format(d);
 String initials(String? name) {
 final n = (name ?? '').trim();
 if (n.isEmpty) return '?';
-final parts = n.split(RegExp(r'\s+')).take(2);
-return parts.map((p) => p.isNotEmpty ? p[0].toUpperCase() : '').join();
+return n.split(RegExp(r'\s+')).take(2).map((p) => p.isNotEmpty ? p.toUpperCase() : '').join();
 }
 Color colorFor(String? seed) {
 final s = (seed ?? 'x');
 var h = 0;
-for (var i = 0; i < s.length; i++) {
-h = (h * 31 + s.codeUnitAt(i)) & 0xFFFFFFFF;
-}
+for (var i = 0; i < s.length; i++) { h = (h * 31 + s.codeUnitAt(i)) & 0xFFFFFFFF; }
 const pal = [Color(0xFF7C5CFF), Color(0xFF10B981), Color(0xFF3B82F6), Color(0xFFFF6B6B), Color(0xFFF59E0B), Color(0xFFEC4899)];
 return pal[h % pal.length];
 }
 Color hexColor(String? hex, {Color fallback = const Color(0xFF10B981)}) {
 if (hex == null || hex.isEmpty) return fallback;
-try {
-final v = hex.replaceFirst('#', '');
-return Color(int.parse('FF$v', radix: 16));
-} catch (_) {
-return fallback;
-}
+try { return Color(int.parse('FF' + hex.replaceFirst('#', ''), radix: 16)); } catch (e) { return fallback; }
 }
 class AvatarView extends StatelessWidget {
-final String? name;
-final String? username;
-final String? url;
-final String? color;
+final String? name, username, url, color;
 final double size;
 final IconData? icon;
 const AvatarView({super.key, this.name, this.username, this.url, this.color, this.size = 48, this.icon});
@@ -281,114 +227,64 @@ final bg = hexColor(color, fallback: colorFor(username ?? name));
 Widget child;
 if (icon != null) {
 child = Container(
-width: size,
-height: size,
-decoration: BoxDecoration(
-shape: BoxShape.circle,
-gradient: LinearGradient(colors: [bg, Color.lerp(bg, const Color(0xFF7C5CFF), 0.55)!]),
-),
+width: size, height: size,
+decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [bg, Color.lerp(bg, const Color(0xFF7C5CFF), 0.55)!])),
 child: Icon(icon, color: Colors.white, size: size * 0.45),
 );
 } else if (url != null && url!.isNotEmpty) {
 child = ClipOval(
-child: CachedNetworkImage(
-imageUrl: url!,
-width: size,
-height: size,
-fit: BoxFit.cover,
-placeholder: (_, __) => fallback(bg),
-errorWidget: (, __, ___) => _fallback(bg),
-),
+child: CachedNetworkImage(imageUrl: url!, width: size, height: size, fit: BoxFit.cover, placeholder: (ctx, u) => buildFallback(bg), errorWidget: (ctx, u, err) => buildFallback(bg)),
 );
 } else {
-child = _fallback(bg);
+child = buildFallback(bg);
 }
 return Container(
-decoration: BoxDecoration(
-shape: BoxShape.circle,
-border: Border.all(color: Colors.white.withOpacity(0.28), width: 1.2),
-),
+decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.28), width: 1.2)),
 child: child,
 );
 }
-Widget _fallback(Color bg) {
-return Container(
-width: size,
-height: size,
-alignment: Alignment.center,
+Widget buildFallback(Color bg) => Container(
+width: size, height: size, alignment: Alignment.center,
 decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
 child: Text(initials(name ?? username), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: size * 0.36)),
 );
-}
 }
 class AnimatedBackground extends StatefulWidget {
 final AppTheme theme;
 final Widget child;
 const AnimatedBackground({super.key, required this.theme, required this.child});
 @override
-State createState() => _AnimatedBackgroundState();
+State createState() => AnimatedBackgroundState();
 }
-class AnimatedBackground extends StatefulWidget {
-  final AppTheme theme;
-  final Widget child;
-  const AnimatedBackground({super.key, required this.theme, required this.child});
-  @override
-  State<AnimatedBackground> createState() => _AnimatedBackgroundState();
-}
-
-class _AnimatedBackgroundState extends State<AnimatedBackground> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 20))..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = widget.theme;
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (_, child) {
-        final v = _c.value;
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment(-1 + 0.5 * v, -1 + 0.4 * v),
-              end: Alignment(1 - 0.4 * v, 1 - 0.5 * v),
-              colors: t.gradient,
-            ),
-          ),
-          child: Stack(children: [
-            Positioned(
-              top: -100 + 40 * math.sin(v * math.pi * 2),
-              left: -80 + 30 * math.cos(v * math.pi * 2),
-              child: _Blob(color: t.accent.withOpacity(0.28)),
-            ),
-            Positioned(
-              bottom: -100 + 40 * math.cos(v * math.pi * 2),
-              right: -80 + 30 * math.sin(v * math.pi * 2),
-              child: _Blob(color: const Color(0xFF7C5CFF).withOpacity(0.20)),
-            ),
-            Positioned.fill(child: child!),
-          ]),
-        );
-      },
-      child: widget.child,
-    );
-  }
-}
-final Color color;
-const _Blob({required this.color});
+class AnimatedBackgroundState extends State with SingleTickerProviderStateMixin {
+late final AnimationController anim = AnimationController(vsync: this, duration: const Duration(seconds: 20))..repeat(reverse: true);
+@override
+void dispose() { anim.dispose(); super.dispose(); }
 @override
 Widget build(BuildContext context) {
+final t = widget.theme;
+return AnimatedBuilder(
+animation: anim,
+builder: (ctx, ch) {
+final v = anim.value;
 return Container(
-width: 380,
-height: 380,
-decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [color, Colors.transparent])),
+decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment(-1 + 0.5 * v, -1 + 0.4 * v), end: Alignment(1 - 0.4 * v, 1 - 0.5 * v), colors: t.gradient)),
+child: Stack(children: [
+Positioned(top: -100 + 40 * math.sin(v * math.pi * 2), left: -80 + 30 * math.cos(v * math.pi * 2), child: GlowBlob(t.accent.withOpacity(0.28))),
+Positioned(bottom: -100 + 40 * math.cos(v * math.pi * 2), right: -80 + 30 * math.sin(v * math.pi * 2), child: GlowBlob(const Color(0xFF7C5CFF).withOpacity(0.20))),
+Positioned.fill(child: ch!),
+]),
+);
+},
+child: widget.child,
 );
 }
+}
+class GlowBlob extends StatelessWidget {
+final Color color;
+const GlowBlob(this.color, {super.key});
+@override
+Widget build(BuildContext context) => Container(width: 380, height: 380, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [color, Colors.transparent])));
 }
 class GlassBox extends StatelessWidget {
 final AppTheme theme;
@@ -407,67 +303,44 @@ Widget content = Container(
 padding: padding,
 decoration: BoxDecoration(
 borderRadius: r,
-gradient: isLiquid
-? LinearGradient(
-begin: Alignment.topLeft,
-end: Alignment.bottomRight,
-colors: t.isDark
-? [Colors.white.withOpacity(0.14), Colors.white.withOpacity(0.04), t.accent.withOpacity(0.09)]
-: [Colors.white.withOpacity(0.82), Colors.white.withOpacity(0.45), t.accent.withOpacity(0.10)],
-)
-: null,
+gradient: isLiquid ? LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: t.isDark ? [Colors.white.withOpacity(0.14), Colors.white.withOpacity(0.04), t.accent.withOpacity(0.09)] : [Colors.white.withOpacity(0.82), Colors.white.withOpacity(0.45), t.accent.withOpacity(0.10)]) : null,
 color: isLiquid ? null : (isFrosted ? t.card : t.cardSolid),
-boxShadow: [
-BoxShadow(color: Colors.black.withOpacity(t.isDark ? 0.35 : 0.08), blurRadius: 26, spreadRadius: -4, offset: const Offset(0, 12)),
-if (isLiquid) BoxShadow(color: t.accent.withOpacity(0.12), blurRadius: 22, spreadRadius: -6),
-],
+boxShadow: [BoxShadow(color: Colors.black.withOpacity(t.isDark ? 0.35 : 0.08), blurRadius: 26, spreadRadius: -4, offset: const Offset(0, 12))],
 ),
 child: child,
 );
-if (isLiquid) {
-content = CustomPaint(foregroundPainter: _LiquidRimPainter(radius: r, isDark: t.isDark, accent: t.accent), child: content);
-}
-if ((isLiquid || isFrosted) && blur) {
-return ClipRRect(
-borderRadius: r,
-child: BackdropFilter(filter: ImageFilter.blur(sigmaX: isLiquid ? 28 : 16, sigmaY: isLiquid ? 28 : 16), child: content),
-);
-}
+if (isLiquid) content = CustomPaint(foregroundPainter: LiquidRimPainter(r, t.isDark, t.accent), child: content);
+if ((isLiquid || isFrosted) && blur) return ClipRRect(borderRadius: r, child: BackdropFilter(filter: ImageFilter.blur(sigmaX: isLiquid ? 28 : 16, sigmaY: isLiquid ? 28 : 16), child: content));
 return content;
 }
 }
-class _LiquidRimPainter extends CustomPainter {
+class LiquidRimPainter extends CustomPainter {
 final BorderRadius radius;
 final bool isDark;
 final Color accent;
-_LiquidRimPainter({required this.radius, required this.isDark, required this.accent});
+LiquidRimPainter(this.radius, this.isDark, this.accent);
 @override
 void paint(Canvas canvas, Size size) {
 final rect = Offset.zero & size;
-final rrect = radius.toRRect(rect).deflate(0.6);
 final paint = Paint()
 ..style = PaintingStyle.stroke
 ..strokeWidth = 1.25
 ..shader = LinearGradient(
-begin: Alignment.topLeft,
-end: Alignment.bottomRight,
-stops: const [0.0, 0.35, 0.7, 1.0],
-colors: isDark
-? [Colors.white.withOpacity(0.48), Colors.white.withOpacity(0.06), accent.withOpacity(0.18), Colors.white.withOpacity(0.28)]
-: [Colors.white.withOpacity(0.95), Colors.white.withOpacity(0.25), accent.withOpacity(0.22), Colors.white.withOpacity(0.75)],
+begin: Alignment.topLeft, end: Alignment.bottomRight, stops: const [0.0, 0.35, 0.7, 1.0],
+colors: isDark ? [Colors.white.withOpacity(0.48), Colors.white.withOpacity(0.06), accent.withOpacity(0.18), Colors.white.withOpacity(0.28)] : [Colors.white.withOpacity(0.95), Colors.white.withOpacity(0.25), accent.withOpacity(0.22), Colors.white.withOpacity(0.75)],
 ).createShader(rect);
-canvas.drawRRect(rrect, paint);
+canvas.drawRRect(radius.toRRect(rect).deflate(0.6), paint);
 }
 @override
-bool shouldRepaint(covariant _LiquidRimPainter old) => old.isDark != isDark || old.accent != accent || old.radius != radius;
+bool shouldRepaint(covariant LiquidRimPainter old) => old.isDark != isDark || old.accent != accent || old.radius != radius;
 }
 class HomeShell extends StatefulWidget {
 const HomeShell({super.key});
 @override
-State createState() => _HomeShellState();
+State createState() => HomeShellState();
 }
-class _HomeShellState extends State {
-int _index = 0;
+class HomeShellState extends State {
+int currentIndex = 0;
 @override
 Widget build(BuildContext context) {
 final t = themeCtl.theme;
@@ -480,7 +353,7 @@ bottom: false,
 child: Center(
 child: ConstrainedBox(
 constraints: const BoxConstraints(maxWidth: 560),
-child: IndexedStack(index: _index, children: const [ChatsTab(), SearchTab(), ProfileTab()]),
+child: IndexedStack(index: currentIndex, children: const [ChatsTab(), SearchTab(), ProfileTab()]),
 ),
 ),
 ),
@@ -493,24 +366,14 @@ heightFactor: 1.0,
 child: ConstrainedBox(
 constraints: const BoxConstraints(maxWidth: 340),
 child: GlassBox(
-theme: t,
-blur: true,
-radius: BorderRadius.circular(34),
-padding: const EdgeInsets.all(5),
+theme: t, blur: true, radius: BorderRadius.circular(34), padding: const EdgeInsets.all(5),
 child: SizedBox(
 height: 54,
-child: LayoutBuilder(
-builder: (context, constraints) {
+child: LayoutBuilder(builder: (context, constraints) {
 final tabW = constraints.maxWidth / 3;
-return Stack(
-children: [
+return Stack(children: [
 AnimatedPositioned(
-duration: const Duration(milliseconds: 340),
-curve: Curves.easeOutBack,
-left: _index * tabW,
-top: 0,
-bottom: 0,
-width: tabW,
+duration: const Duration(milliseconds: 340), curve: Curves.easeOutBack, left: currentIndex * tabW, top: 0, bottom: 0, width: tabW,
 child: Container(
 decoration: BoxDecoration(
 borderRadius: BorderRadius.circular(28),
@@ -519,15 +382,9 @@ border: Border.all(color: Colors.white.withOpacity(t.isDark ? 0.30 : 0.75), widt
 ),
 ),
 ),
-Row(children: [
-_navBtn(0, Icons.chat_bubble_rounded, 'Чаты'),
-_navBtn(1, Icons.search_rounded, 'Поиск'),
-_navBtn(2, Icons.person_rounded, 'Профиль'),
-]),
-],
-);
-},
-),
+Row(children: [navBtn(0, Icons.chat_bubble_rounded, 'Чаты'), navBtn(1, Icons.search_rounded, 'Поиск'), navBtn(2, Icons.person_rounded, 'Профиль')]),
+]);
+}),
 ),
 ),
 ),
@@ -536,21 +393,18 @@ _navBtn(2, Icons.person_rounded, 'Профиль'),
 ),
 );
 }
-Widget _navBtn(int i, IconData icon, String label) {
+Widget navBtn(int i, IconData icon, String label) {
 final t = themeCtl.theme;
-final on = _index == i;
+final on = currentIndex == i;
 return Expanded(
 child: GestureDetector(
 behavior: HitTestBehavior.opaque,
-onTap: () { HapticFeedback.selectionClick(); setState(() => _index = i); },
-child: Column(
-mainAxisAlignment: MainAxisAlignment.center,
-children: [
+onTap: () { HapticFeedback.selectionClick(); setState(() => currentIndex = i); },
+child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
 Icon(icon, color: on ? (t.isDark ? Colors.white : t.accent) : t.muted, size: 22),
 const SizedBox(height: 2),
 Text(label, style: TextStyle(fontSize: 10.5, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? (t.isDark ? Colors.white : t.accent) : t.muted)),
-],
-),
+]),
 ),
 );
 }
@@ -558,46 +412,28 @@ Text(label, style: TextStyle(fontSize: 10.5, fontWeight: on ? FontWeight.w700 : 
 class AuthScreen extends StatefulWidget {
 const AuthScreen({super.key});
 @override
-State createState() => _AuthScreenState();
+State createState() => AuthScreenState();
 }
-class _AuthScreenState extends State {
-final _email = TextEditingController();
-final _pass = TextEditingController();
-final _name = TextEditingController();
-final _user = TextEditingController();
-bool _isLogin = true;
-bool _loading = false;
-String? _error;
-Future _submit() async {
-setState(() { _loading = true; _error = null; });
+class AuthScreenState extends State {
+final emailCtrl = TextEditingController(), passCtrl = TextEditingController(), nameCtrl = TextEditingController(), userCtrl = TextEditingController();
+bool isLogin = true, loading = false;
+String? errorMsg;
+Future submit() async {
+setState(() { loading = true; errorMsg = null; });
 try {
 final auth = Supabase.instance.client.auth;
-if (_isLogin) {
-await auth.signInWithPassword(email: _email.text.trim(), password: _pass.text);
+if (isLogin) {
+await auth.signInWithPassword(email: emailCtrl.text.trim(), password: passCtrl.text);
 } else {
-final username = _user.text.trim().toLowerCase();
+final username = userCtrl.text.trim().toLowerCase();
 final exists = await Supabase.instance.client.from('profiles').select('id').ilike('username', username).limit(1);
 if ((exists as List).isNotEmpty) throw 'Этот @username занят';
-final res = await auth.signUp(
-email: _email.text.trim(),
-password: _pass.text,
-data: {'name': _name.text.trim(), 'username': username},
-);
+final res = await auth.signUp(email: emailCtrl.text.trim(), password: passCtrl.text, data: {'name': nameCtrl.text.trim(), 'username': username});
 if (res.user != null) {
-await Supabase.instance.client.from('profiles').upsert({
-'id': res.user!.id,
-'name': _name.text.trim(),
-'username': username,
-'stars': 0,
-'avatar_color': '#10B981',
-}, onConflict: 'id');
+await Supabase.instance.client.from('profiles').upsert({'id': res.user!.id, 'name': nameCtrl.text.trim(), 'username': username, 'stars': 0, 'avatar_color': '#10B981'}, onConflict: 'id');
 }
 }
-} catch (e) {
-setState(() => _error = e.toString());
-} finally {
-if (mounted) setState(() => _loading = false);
-}
+} catch (e) { setState(() => errorMsg = e.toString()); } finally { if (mounted) setState(() => loading = false); }
 }
 @override
 Widget build(BuildContext context) {
@@ -618,38 +454,22 @@ Text('Xwend', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color:
 Text('Мессенджер нового поколения', style: TextStyle(fontSize: 13, color: t.muted)),
 const SizedBox(height: 24),
 GlassBox(
-theme: t,
-blur: true,
-padding: const EdgeInsets.all(22),
-radius: BorderRadius.circular(28),
+theme: t, blur: true, padding: const EdgeInsets.all(22), radius: BorderRadius.circular(28),
 child: Column(children: [
-Row(children: [
-Expanded(child: _authTab('Вход', true)),
-Expanded(child: _authTab('Регистрация', false)),
-]),
+Row(children: [Expanded(child: authTab('Вход', true)), Expanded(child: authTab('Регистрация', false))]),
 const SizedBox(height: 18),
-_field('Email', _email, keyboard: TextInputType.emailAddress),
-_field('Пароль', _pass, obscure: true),
-if (!_isLogin) _field('Имя', _name),
-if (!_isLogin) _field('@username', _user),
-if (_error != null)
-Padding(
-padding: const EdgeInsets.only(top: 8),
-child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 12), textAlign: TextAlign.center),
-),
+field('Email', emailCtrl, keyboard: TextInputType.emailAddress),
+field('Пароль', passCtrl, obscure: true),
+if (!isLogin) field('Имя', nameCtrl),
+if (!isLogin) field('@username', userCtrl),
+if (errorMsg != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(errorMsg!, style: const TextStyle(color: Colors.redAccent, fontSize: 12), textAlign: TextAlign.center)),
 const SizedBox(height: 16),
 SizedBox(
 width: double.infinity,
 child: FilledButton(
-style: FilledButton.styleFrom(
-backgroundColor: t.accent,
-padding: const EdgeInsets.symmetric(vertical: 15),
-shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-),
-onPressed: _loading ? null : _submit,
-child: _loading
-? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-: Text(_isLogin ? 'Войти' : 'Создать аккаунт', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+onPressed: loading ? null : submit,
+child: loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(isLogin ? 'Войти' : 'Создать аккаунт', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
 ),
 ),
 ]),
@@ -662,91 +482,79 @@ child: _loading
 ),
 );
 }
-Widget _authTab(String text, bool login) {
+Widget authTab(String text, bool login) {
 final t = themeCtl.theme;
-final on = _isLogin == login;
+final on = isLogin == login;
 return GestureDetector(
-onTap: () => setState(() => _isLogin = login),
+onTap: () => setState(() => isLogin = login),
 child: AnimatedContainer(
-duration: const Duration(milliseconds: 220),
-margin: const EdgeInsets.symmetric(horizontal: 2),
-padding: const EdgeInsets.symmetric(vertical: 10),
-decoration: BoxDecoration(color: on ? t.accent : Colors.transparent, borderRadius: BorderRadius.circular(14)),
-alignment: Alignment.center,
+duration: const Duration(milliseconds: 220), margin: const EdgeInsets.symmetric(horizontal: 2), padding: const EdgeInsets.symmetric(vertical: 10),
+decoration: BoxDecoration(color: on ? t.accent : Colors.transparent, borderRadius: BorderRadius.circular(14)), alignment: Alignment.center,
 child: Text(text, style: TextStyle(color: on ? Colors.white : t.muted, fontWeight: FontWeight.w700)),
 ),
 );
 }
-Widget _field(String label, TextEditingController c, {bool obscure = false, TextInputType? keyboard}) {
+Widget field(String label, TextEditingController c, {bool obscure = false, TextInputType? keyboard}) {
 final t = themeCtl.theme;
 return Padding(
 padding: const EdgeInsets.only(bottom: 10),
 child: TextField(
-controller: c,
-obscureText: obscure,
-keyboardType: keyboard,
-style: TextStyle(color: t.text),
-decoration: InputDecoration(
-labelText: label,
-filled: true,
-fillColor: Colors.white.withOpacity(t.isDark ? 0.06 : 0.5),
-border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-labelStyle: TextStyle(color: t.muted),
-),
+controller: c, obscureText: obscure, keyboardType: keyboard, style: TextStyle(color: t.text),
+decoration: InputDecoration(labelText: label, filled: true, fillColor: Colors.white.withOpacity(t.isDark ? 0.06 : 0.5), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none), labelStyle: TextStyle(color: t.muted)),
 ),
 );
 }
 }
-class ChatsTabState extends State<ChatsTab> {
+class ChatsTab extends StatefulWidget {
 const ChatsTab({super.key});
 @override
-State<ChatsTab> createState() => ChatsTabState();
+State createState() => ChatsTabState();
 }
 class ChatsTabState extends State {
-final csb = Supabase.instance.client;
-List<Map<String, dynamic>> cchats = [];
-String? csavedId;
-bool cloading = true;
-RealtimeChannel? cch;
-RealtimeChannel? cchMsgs;
+final sb = Supabase.instance.client;
+List<Map<String, dynamic>> chatsList = [];
+String? savedId;
+bool loading = true;
+RealtimeChannel? chChats;
+RealtimeChannel? chMsgs;
 @override
 void initState() {
 super.initState();
-cload();
-cch = csb.channel('chats-rt')
-..onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'chats', callback: (p) => cload())
-..onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'chat_participants', callback: (p) => cload())
+loadData();
+chChats = sb.channel('chats-rt')
+..onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'chats', callback: (p) => loadData())
+..onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', table: 'chat_participants', callback: (p) => loadData())
 ..subscribe();
-cchMsgs = csb.channel('msgs-rt')
-..onPostgresChanges(event: PostgresChangeEvent.insert, schema: 'public', table: 'messages', callback: (p) => cload())
+chMsgs = sb.channel('msgs-rt')
+..onPostgresChanges(event: PostgresChangeEvent.insert, schema: 'public', table: 'messages', callback: (p) => loadData())
 ..subscribe();
 }
 @override
 void dispose() {
-cch?.unsubscribe();
-cchMsgs?.unsubscribe();
+chChats?.unsubscribe();
+chMsgs?.unsubscribe();
 super.dispose();
 }
-Future censureSaved() async {
-if (csavedId != null) return;
+Future ensureSaved() async {
+if (savedId != null) return;
 try {
-final r = await csb.rpc('get_or_create_saved_chat');
-csavedId = r as String;
+final r = await sb.rpc('get_or_create_saved_chat');
+savedId = r as String;
 } catch (e) {}
 }
-Future cload() async {
-final me = csb.auth.currentUser!.id;
-await censureSaved();
+Future loadData() async {
+final me = sb.auth.currentUser!.id;
+await ensureSaved();
 try {
-final parts = await csb.from('chat_participants').select('chat_id, role').eq('user_id', me);
+final parts = await sb.from('chat_participants').select('chat_id, role').eq('user_id', me);
 final ids = (parts as List).map((e) => e['chat_id'] as String).toList();
 if (ids.isEmpty) {
-if (mounted) setState(() { cchats = []; cloading = false; });
+if (mounted) setState(() { chatsList = []; loading = false; });
 return;
 }
-final chats = await csb.from('chats').select('').inFilter('id', ids);
-final allParts = await csb.from('chat_participants').select('chat_id, user_id, role, profiles:user_id(id, username, name, avatar_color, avatar_url)').inFilter('chat_id', ids);
-final lastMsgs = await csb.from('messages').select('').inFilter('chat_id', ids).order('created_at', ascending: false);
+final chats = await sb.from('chats').select('').inFilter('id', ids);
+final allParts = await sb.from('chat_participants').select('chat_id, user_id, role, profiles:user_id(id, username, name, avatar_color, avatar_url)').inFilter('chat_id', ids);
+final lastMsgs = await sb.from('messages').select('').inFilter('chat_id', ids).order('created_at', ascending: false);
 final lastBy = <String, Map<String, dynamic>>{};
 for (final m in lastMsgs as List) {
 lastBy.putIfAbsent(m['chat_id'] as String, () => Map<String, dynamic>.from(m));
@@ -770,17 +578,17 @@ if (ta == null) return 1;
 if (tb == null) return -1;
 return DateTime.parse(tb).compareTo(DateTime.parse(ta));
 });
-if (mounted) setState(() { cchats = list; cloading = false; });
+if (mounted) setState(() { chatsList = list; loading = false; });
 } catch (e) {
-if (mounted) setState(() => cloading = false);
+if (mounted) setState(() => loading = false);
 }
 }
-String cname(Map<String, dynamic> c) {
+String chatName(Map<String, dynamic> c) {
 if (c['type'] == 'saved') return 'Избранное';
 if (c['type'] == 'direct') return c['other']?['name'] ?? c['other']?['username'] ?? 'Пользователь';
 return c['title'] ?? 'Без названия';
 }
-String cpreview(Map<String, dynamic>? m) {
+String msgPreview(Map<String, dynamic>? m) {
 if (m == null) return 'Нет сообщений';
 switch (m['message_type']) {
 case 'image': return '📷 Фото';
@@ -790,11 +598,11 @@ case 'gift': return '🎁 Подарок';
 default: return m['content'] ?? '';
 }
 }
-Future copenChat(Map<String, dynamic> c) async {
+Future openChat(Map<String, dynamic> c) async {
 await Navigator.of(context).push(CupertinoPageRoute(builder: (ctx) => ChatScreen(chat: c)));
-cload();
+loadData();
 }
-void copenContext(Map<String, dynamic> c) {
+void openContext(Map<String, dynamic> c) {
 HapticFeedback.mediumImpact();
 final t = themeCtl.theme;
 showModalBottomSheet(
@@ -804,8 +612,8 @@ shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Rad
 builder: (ctx) => SafeArea(
 child: Column(mainAxisSize: MainAxisSize.min, children: [
 ListTile(
-title: Text(cname(c), style: TextStyle(fontWeight: FontWeight.w700, color: t.text)),
-subtitle: Text(c['username'] != null ? '@${c['username']}' : '', style: TextStyle(color: t.muted, fontSize: 12)),
+title: Text(chatName(c), style: TextStyle(fontWeight: FontWeight.w700, color: t.text)),
+subtitle: Text(c['username'] != null ? '@' + c['username'].toString() : '', style: TextStyle(color: t.muted, fontSize: 12)),
 ),
 const Divider(height: 1),
 if (c['type'] == 'direct' && c['other'] != null) ...[
@@ -828,7 +636,7 @@ await Supabase.instance.client.rpc('delete_chat', params: {'p_chat_id': c['id']}
 } else {
 await Supabase.instance.client.rpc('leave_chat', params: {'p_chat_id': c['id']});
 }
-cload();
+loadData();
 } catch (e) {}
 },
 ),
@@ -836,7 +644,7 @@ cload();
 ),
 );
 }
-void copenCreateSheet() {
+void openCreateSheet() {
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
@@ -844,24 +652,24 @@ backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
 builder: (ctx) => SafeArea(
 child: Column(mainAxisSize: MainAxisSize.min, children: [
-ListTile(leading: const Icon(Icons.group_add), title: const Text('Новая группа'), onTap: () { Navigator.pop(ctx); ccreateChat('group'); }),
-ListTile(leading: const Icon(Icons.campaign), title: const Text('Новый канал'), onTap: () { Navigator.pop(ctx); ccreateChat('channel'); }),
+ListTile(leading: const Icon(Icons.group_add), title: const Text('Новая группа'), onTap: () { Navigator.pop(ctx); createChat('group'); }),
+ListTile(leading: const Icon(Icons.campaign), title: const Text('Новый канал'), onTap: () { Navigator.pop(ctx); createChat('channel'); }),
 ]),
 ),
 );
 }
-void ccreateChat(String type) {
+void createChat(String type) {
 final t = themeCtl.theme;
-final title = TextEditingController();
-final uname = TextEditingController();
+final titleCtrl = TextEditingController();
+final unameCtrl = TextEditingController();
 showDialog(
 context: context,
 builder: (ctx) => AlertDialog(
 backgroundColor: t.cardSolid,
 title: Text(type == 'group' ? 'Новая группа' : 'Новый канал'),
 content: Column(mainAxisSize: MainAxisSize.min, children: [
-TextField(controller: title, decoration: const InputDecoration(labelText: 'Название')),
-TextField(controller: uname, decoration: const InputDecoration(labelText: '@username (необязательно)')),
+TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Название')),
+TextField(controller: unameCtrl, decoration: const InputDecoration(labelText: '@username (необязательно)')),
 ]),
 actions: [
 TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
@@ -872,15 +680,15 @@ Navigator.pop(ctx);
 try {
 final r = await Supabase.instance.client.rpc('create_group_or_channel', params: {
 'p_type': type,
-'p_title': title.text.trim(),
-'p_username': uname.text.trim().isEmpty ? null : uname.text.trim().toLowerCase(),
+'p_title': titleCtrl.text.trim(),
+'p_username': unameCtrl.text.trim().isEmpty ? null : unameCtrl.text.trim().toLowerCase(),
 });
 final id = r as String;
-await cload();
-final c = cchats.firstWhere((x) => x['id'] == id, orElse: () => {});
-if (c.isNotEmpty) copenChat(c);
+await loadData();
+final c = chatsList.firstWhere((x) => x['id'] == id, orElse: () => {});
+if (c.isNotEmpty) openChat(c);
 } catch (e) {
-if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
 }
 },
 child: const Text('Создать'),
@@ -904,11 +712,11 @@ GlassBox(
 theme: t,
 blur: false,
 radius: BorderRadius.circular(14),
-child: IconButton(icon: Icon(Icons.add_rounded, color: t.text), onPressed: copenCreateSheet),
+child: IconButton(icon: Icon(Icons.add_rounded, color: t.text), onPressed: openCreateSheet),
 ),
 ]),
 ),
-if (csavedId != null)
+if (savedId != null)
 Padding(
 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
 child: RepaintBoundary(
@@ -921,24 +729,24 @@ shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
 leading: AvatarView(icon: Icons.bookmark_rounded, size: 48, color: t.accent.toARGB32().toString()),
 title: Text('Избранное', style: TextStyle(fontWeight: FontWeight.w700, color: t.text)),
 subtitle: Text('Заметки, файлы, ГС и пересланные', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: t.muted, fontSize: 12.5)),
-onTap: () => copenChat({'id': csavedId, 'type': 'saved', 'title': 'Избранное', 'my_role': 'owner'}),
+onTap: () => openChat({'id': savedId, 'type': 'saved', 'title': 'Избранное', 'my_role': 'owner'}),
 ),
 ),
 ),
 ),
 const SizedBox(height: 2),
 Expanded(
-child: cloading
+child: loading
 ? Center(child: CircularProgressIndicator(color: t.accent))
 : ListView.builder(
 padding: const EdgeInsets.only(bottom: 95),
 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
 cacheExtent: 800,
-itemCount: cchats.length,
+itemCount: chatsList.length,
 itemBuilder: (ctx, i) {
-final c = cchats[i];
+final c = chatsList[i];
 return RepaintBoundary(
-child: _ChatTile(chat: c, name: cname(c), preview: cpreview(c['last']), onTap: () => copenChat(c), onLong: () => copenContext(c)),
+child: ChatTile(chat: c, name: chatName(c), preview: msgPreview(c['last']), onTap: () => openChat(c), onLong: () => openContext(c)),
 );
 },
 ),
@@ -946,12 +754,12 @@ child: _ChatTile(chat: c, name: cname(c), preview: cpreview(c['last']), onTap: (
 ]);
 }
 }
-class _ChatTile extends StatelessWidget {
+class ChatTile extends StatelessWidget {
 final Map<String, dynamic> chat;
 final String name;
 final String preview;
 final VoidCallback onTap, onLong;
-const _ChatTile({required this.chat, required this.name, required this.preview, required this.onTap, required this.onLong});
+const ChatTile({super.key, required this.chat, required this.name, required this.preview, required this.onTap, required this.onLong});
 @override
 Widget build(BuildContext context) {
 final t = themeCtl.theme;
@@ -1009,23 +817,23 @@ const ChatScreen({super.key, required this.chat});
 @override
 State createState() => ChatScreenState();
 }
-class ChatScreenState extends State<ChatScreen> {
-final csb = Supabase.instance.client;
-final cinput = TextEditingController();
-final cscroll = ScrollController();
-final crecorder = AudioRecorder();
-final cplayer = AudioPlayer();
-List<Map<String, dynamic>> cmessages = [];
-RealtimeChannel? cch;
-bool cloading = true;
-bool csending = false;
-Map<String, dynamic>? creplyTo;
-bool cshowEmoji = false;
-bool crecording = false;
-int crecSecs = 0;
-Timer? crecTimer;
+class ChatScreenState extends State {
+final sb = Supabase.instance.client;
+final inputCtrl = TextEditingController();
+final scrollCtrl = ScrollController();
+final recorder = AudioRecorder();
+final player = AudioPlayer();
+List<Map<String, dynamic>> messagesList = [];
+RealtimeChannel? chChat;
+bool loading = true;
+bool sending = false;
+Map<String, dynamic>? replyTo;
+bool showEmoji = false;
+bool recording = false;
+int recSecs = 0;
+Timer? recTimer;
 String get chatId => widget.chat['id'] as String;
-String get me => csb.auth.currentUser!.id;
+String get me => sb.auth.currentUser!.id;
 bool get canWrite {
 if (widget.chat['type'] != 'channel') return true;
 final role = widget.chat['my_role'] ?? 'member';
@@ -1034,173 +842,173 @@ return role == 'owner' || role == 'admin';
 @override
 void initState() {
 super.initState();
-cinput.addListener(() { if (mounted) setState(() {}); });
-cload();
-cch = csb.channel('chat-$chatId')
+inputCtrl.addListener(() { if (mounted) setState(() {}); });
+loadMessages();
+chChat = sb.channel('chat-' + chatId)
 ..onPostgresChanges(event: PostgresChangeEvent.insert, schema: 'public', table: 'messages', callback: (p) {
 final m = p.newRecord;
 if (m['chat_id'] != chatId) return;
-if (cmessages.any((x) => x['id'] == m['id'])) return;
-if (mounted) setState(() => cmessages.add(Map<String, dynamic>.from(m)));
-cscrollDown();
+if (messagesList.any((x) => x['id'] == m['id'])) return;
+if (mounted) setState(() => messagesList.add(Map<String, dynamic>.from(m)));
+scrollDown();
 })
 ..onPostgresChanges(event: PostgresChangeEvent.delete, schema: 'public', table: 'messages', callback: (p) {
 final old = p.oldRecord;
 if (old['chat_id'] != chatId) return;
-if (mounted) setState(() => cmessages.removeWhere((x) => x['id'] == old['id']));
+if (mounted) setState(() => messagesList.removeWhere((x) => x['id'] == old['id']));
 })
 ..subscribe();
 }
 @override
 void dispose() {
-cch?.unsubscribe();
-cinput.dispose();
-cscroll.dispose();
-crecTimer?.cancel();
-crecorder.dispose();
-cplayer.dispose();
+chChat?.unsubscribe();
+inputCtrl.dispose();
+scrollCtrl.dispose();
+recTimer?.cancel();
+recorder.dispose();
+player.dispose();
 super.dispose();
 }
-Future cload() async {
+Future loadMessages() async {
 try {
-final data = await csb.from('messages').select('*').eq('chat_id', chatId).order('created_at', ascending: true);
-if (mounted) setState(() { cmessages = List<Map<String, dynamic>>.from(data); cloading = false; });
-cscrollDown();
+final data = await sb.from('messages').select('*').eq('chat_id', chatId).order('created_at', ascending: true);
+if (mounted) setState(() { messagesList = List<Map<String, dynamic>>.from(data); loading = false; });
+scrollDown();
 } catch (e) {
-if (mounted) setState(() => cloading = false);
+if (mounted) setState(() => loading = false);
 }
 }
-void cscrollDown() {
+void scrollDown() {
 WidgetsBinding.instance.addPostFrameCallback((d) {
-if (cscroll.hasClients) cscroll.animateTo(cscroll.position.maxScrollExtent, duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic);
+if (scrollCtrl.hasClients) scrollCtrl.animateTo(scrollCtrl.position.maxScrollExtent, duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic);
 });
 }
-Future csend() async {
-final text = cinput.text.trim();
-if (text.isEmpty || csending || !canWrite) return;
-csending = true;
-cinput.clear();
-final tid = 'tmp_${DateTime.now().millisecondsSinceEpoch}';
+Future sendMsg() async {
+final text = inputCtrl.text.trim();
+if (text.isEmpty || sending || !canWrite) return;
+sending = true;
+inputCtrl.clear();
+final tid = 'tmp_' + DateTime.now().millisecondsSinceEpoch.toString();
 final optimistic = {
 'id': tid, 'chat_id': chatId, 'sender_id': me,
 'content': text, 'message_type': 'text',
-'reply_to': creplyTo?['id'],
+'reply_to': replyTo?['id'],
 'created_at': DateTime.now().toIso8601String(),
 };
-setState(() { cmessages.add(optimistic); creplyTo = null; cshowEmoji = false; });
-cscrollDown();
+setState(() { messagesList.add(optimistic); replyTo = null; showEmoji = false; });
+scrollDown();
 try {
-final res = await csb.from('messages').insert({
+final res = await sb.from('messages').insert({
 'chat_id': chatId,
 'sender_id': me,
 'content': text,
 'message_type': 'text',
 'reply_to': optimistic['reply_to'],
 }).select().single();
-final idx = cmessages.indexWhere((m) => m['id'] == tid);
-if (idx >= 0 && mounted) setState(() => cmessages[idx] = Map<String, dynamic>.from(res));
+final idx = messagesList.indexWhere((m) => m['id'] == tid);
+if (idx >= 0 && mounted) setState(() => messagesList[idx] = Map<String, dynamic>.from(res));
 } catch (e) {
-if (mounted) setState(() => cmessages.removeWhere((m) => m['id'] == tid));
+if (mounted) setState(() => messagesList.removeWhere((m) => m['id'] == tid));
 } finally {
-csending = false;
+sending = false;
 }
 }
-Future cdeleteMessage(Map<String, dynamic> m) async {
-final idx = cmessages.indexOf(m);
+Future deleteMessage(Map<String, dynamic> m) async {
+final idx = messagesList.indexOf(m);
 if (idx < 0) return;
-setState(() => cmessages.removeAt(idx));
-try { await csb.from('messages').delete().eq('id', m['id']); } catch (e) {
-if (mounted) setState(() => cmessages.insert(idx, m));
+setState(() => messagesList.removeAt(idx));
+try { await sb.from('messages').delete().eq('id', m['id']); } catch (e) {
+if (mounted) setState(() => messagesList.insert(idx, m));
 }
 }
-Future csendMedia({required bool fromCamera}) async {
+Future sendMedia({required bool fromCamera}) async {
 if (!canWrite) return;
 final picker = ImagePicker();
 final XFile? f = fromCamera
 ? await picker.pickImage(source: ImageSource.camera, imageQuality: 80, maxWidth: 2000)
 : await picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 2000);
 if (f == null) return;
-await cuploadAndSendFile(File(f.path), isImage: true, name: f.name);
+await uploadAndSendFile(File(f.path), isImage: true, name: f.name);
 }
-Future csendDocument() async {
+Future sendDocument() async {
 if (!canWrite) return;
 final r = await FilePicker.platform.pickFiles();
 if (r == null || r.files.single.path == null) return;
-await cuploadAndSendFile(File(r.files.single.path!), isImage: false, name: r.files.single.name);
+await uploadAndSendFile(File(r.files.single.path!), isImage: false, name: r.files.single.name);
 }
-Future cuploadAndSendFile(File file, {required bool isImage, required String name}) async {
-final tid = 'tmp_${DateTime.now().millisecondsSinceEpoch}';
+Future uploadAndSendFile(File file, {required bool isImage, required String name}) async {
+final tid = 'tmp_' + DateTime.now().millisecondsSinceEpoch.toString();
 setState(() {
-cmessages.add({
+messagesList.add({
 'id': tid, 'chat_id': chatId, 'sender_id': me,
 'content': '', 'message_type': isImage ? 'image' : 'file',
 'file_url': file.path, 'file_name': name,
 'created_at': DateTime.now().toIso8601String(),
 });
 });
-cscrollDown();
+scrollDown();
 try {
 final ext = name.split('.').last;
-final path = '$me/DateTime.now().millisecondsSinceEpoch.ext';
-await csb.storage.from(AppConfig.mediaBucket).upload(path, file);
-final url = csb.storage.from(AppConfig.mediaBucket).getPublicUrl(path);
-final res = await csb.from('messages').insert({
+final path = me + '/' + DateTime.now().millisecondsSinceEpoch.toString() + '.' + ext;
+await sb.storage.from(AppConfig.mediaBucket).upload(path, file);
+final url = sb.storage.from(AppConfig.mediaBucket).getPublicUrl(path);
+final res = await sb.from('messages').insert({
 'chat_id': chatId, 'sender_id': me, 'content': '',
 'message_type': isImage ? 'image' : 'file',
 'file_url': url, 'file_name': name,
 }).select().single();
-final idx = cmessages.indexWhere((m) => m['id'] == tid);
-if (idx >= 0 && mounted) setState(() => cmessages[idx] = Map<String, dynamic>.from(res));
+final idx = messagesList.indexWhere((m) => m['id'] == tid);
+if (idx >= 0 && mounted) setState(() => messagesList[idx] = Map<String, dynamic>.from(res));
 } catch (e) {
-if (mounted) setState(() => cmessages.removeWhere((m) => m['id'] == tid));
-if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка загрузки: $e')));
+if (mounted) setState(() => messagesList.removeWhere((m) => m['id'] == tid));
+if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка загрузки: ' + e.toString())));
 }
 }
-Future cstartRecording() async {
+Future startRecording() async {
 if (!canWrite) return;
 try {
-if (!await crecorder.hasPermission()) return;
+if (!await recorder.hasPermission()) return;
 final dir = await getTemporaryDirectory();
-final path = '{dir.path}/voice_{DateTime.now().millisecondsSinceEpoch}.m4a';
-await crecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
-setState(() { crecording = true; crecSecs = 0; });
-crecTimer = Timer.periodic(const Duration(seconds: 1), (tm) => setState(() => crecSecs++));
+final path = dir.path + '/voice_' + DateTime.now().millisecondsSinceEpoch.toString() + '.m4a';
+await recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+setState(() { recording = true; recSecs = 0; });
+recTimer = Timer.periodic(const Duration(seconds: 1), (tm) => setState(() => recSecs++));
 } catch (e) {
-if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Микрофон недоступен: $e')));
+if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Микрофон недоступен: ' + e.toString())));
 }
 }
-Future cstopRecording({bool send = true}) async {
-crecTimer?.cancel();
-final path = await crecorder.stop();
-setState(() => crecording = false);
+Future stopRecording({bool send = true}) async {
+recTimer?.cancel();
+final path = await recorder.stop();
+setState(() => recording = false);
 if (!send || path == null) return;
 final file = File(path);
-final dur = crecSecs < 1 ? 1 : crecSecs;
-final tid = 'tmp_${DateTime.now().millisecondsSinceEpoch}';
+final dur = recSecs < 1 ? 1 : recSecs;
+final tid = 'tmp_' + DateTime.now().millisecondsSinceEpoch.toString();
 setState(() {
-cmessages.add({
+messagesList.add({
 'id': tid, 'chat_id': chatId, 'sender_id': me,
 'content': '', 'message_type': 'voice',
 'file_url': file.path, 'duration_sec': dur,
 'created_at': DateTime.now().toIso8601String(),
 });
 });
-cscrollDown();
+scrollDown();
 try {
-final storagePath = 'me/voice_{DateTime.now().millisecondsSinceEpoch}.m4a';
-await csb.storage.from(AppConfig.mediaBucket).upload(storagePath, file);
-final url = csb.storage.from(AppConfig.mediaBucket).getPublicUrl(storagePath);
-final res = await csb.from('messages').insert({
+final storagePath = me + '/voice_' + DateTime.now().millisecondsSinceEpoch.toString() + '.m4a';
+await sb.storage.from(AppConfig.mediaBucket).upload(storagePath, file);
+final url = sb.storage.from(AppConfig.mediaBucket).getPublicUrl(storagePath);
+final res = await sb.from('messages').insert({
 'chat_id': chatId, 'sender_id': me, 'content': '',
 'message_type': 'voice', 'file_url': url, 'duration_sec': dur,
 }).select().single();
-final idx = cmessages.indexWhere((m) => m['id'] == tid);
-if (idx >= 0 && mounted) setState(() => cmessages[idx] = Map<String, dynamic>.from(res));
+final idx = messagesList.indexWhere((m) => m['id'] == tid);
+if (idx >= 0 && mounted) setState(() => messagesList[idx] = Map<String, dynamic>.from(res));
 } catch (e) {
-if (mounted) setState(() => cmessages.removeWhere((m) => m['id'] == tid));
+if (mounted) setState(() => messagesList.removeWhere((m) => m['id'] == tid));
 }
 }
-void copenMessageMenu(Map<String, dynamic> m) {
+void openMessageMenu(Map<String, dynamic> m) {
 HapticFeedback.mediumImpact();
 final t = themeCtl.theme;
 showModalBottomSheet(
@@ -1209,20 +1017,20 @@ backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
 builder: (ctx) => SafeArea(
 child: Column(mainAxisSize: MainAxisSize.min, children: [
-ListTile(leading: const Icon(Icons.reply), title: const Text('Ответить'), onTap: () { Navigator.pop(ctx); setState(() => creplyTo = m); }),
-ListTile(leading: const Icon(Icons.delete, color: Colors.redAccent), title: const Text('Удалить', style: TextStyle(color: Colors.redAccent)), onTap: () { Navigator.pop(ctx); cdeleteMessage(m); }),
+ListTile(leading: const Icon(Icons.reply), title: const Text('Ответить'), onTap: () { Navigator.pop(ctx); setState(() => replyTo = m); }),
+ListTile(leading: const Icon(Icons.delete, color: Colors.redAccent), title: const Text('Удалить', style: TextStyle(color: Colors.redAccent)), onTap: () { Navigator.pop(ctx); deleteMessage(m); }),
 ]),
 ),
 );
 }
-void copenChatInfo() {
+void openChatInfo() {
 if (widget.chat['type'] == 'group' || widget.chat['type'] == 'channel') {
 Navigator.push(context, CupertinoPageRoute(builder: (ctx) => GroupScreen(chat: widget.chat)));
 } else if (widget.chat['type'] == 'direct' && widget.chat['other'] != null) {
 Navigator.push(context, CupertinoPageRoute(builder: (ctx) => OtherProfileScreen(userId: widget.chat['other']['id'], user: widget.chat['other'])));
 }
 }
-String get ctitle {
+String get chatTitle {
 if (widget.chat['type'] == 'saved') return 'Избранное';
 if (widget.chat['type'] == 'direct') return widget.chat['other']?['name'] ?? widget.chat['other']?['username'] ?? 'Чат';
 return widget.chat['title'] ?? 'Чат';
@@ -1250,7 +1058,7 @@ padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
 child: Row(children: [
 IconButton(icon: Icon(Icons.arrow_back_ios_new_rounded, color: t.text, size: 20), onPressed: () => Navigator.pop(context)),
 GestureDetector(
-onTap: copenChatInfo,
+onTap: openChatInfo,
 child: Row(children: [
 AvatarView(
 name: widget.chat['type'] == 'direct' ? (widget.chat['other']?['name'] ?? '') : (widget.chat['title'] ?? ''),
@@ -1261,12 +1069,12 @@ icon: widget.chat['type'] == 'saved' ? Icons.bookmark_rounded : null,
 ),
 const SizedBox(width: 10),
 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-Text(ctitle, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: t.text)),
+Text(chatTitle, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: t.text)),
 Text(
 widget.chat['type'] == 'direct'
-? (widget.chat['other']?['username'] != null ? '@${widget.chat['other']['username']}' : '')
+? (widget.chat['other']?['username'] != null ? '@' + widget.chat['other']['username'].toString() : '')
 : widget.chat['username'] != null
-? '@${widget.chat['username']}'
+? '@' + widget.chat['username'].toString()
 : (widget.chat['type'] == 'channel' ? 'Канал' : (widget.chat['type'] == 'saved' ? 'Личное облако' : 'Группа')),
 style: TextStyle(fontSize: 11.5, color: t.muted),
 ),
@@ -1278,34 +1086,34 @@ const Spacer(),
 ),
 ),
 Expanded(
-child: cloading
+child: loading
 ? Center(child: CircularProgressIndicator(color: t.accent))
 : ListView.builder(
-controller: cscroll,
+controller: scrollCtrl,
 physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
 cacheExtent: 800,
 addAutomaticKeepAlives: true,
-itemCount: cmessages.length,
+itemCount: messagesList.length,
 itemBuilder: (ctx, i) {
-final m = cmessages[i];
+final m = messagesList[i];
 final out = m['sender_id'] == me;
 return RepaintBoundary(
-child: _MessageBubble(
+child: MessageBubble(
 msg: m,
 isOut: out,
-onLong: () => copenMessageMenu(m),
+onLong: () => openMessageMenu(m),
 onPlayAudio: () async {
 final url = m['file_url']?.toString() ?? '';
 if (url.isEmpty) return;
 try {
-await cplayer.stop();
+await player.stop();
 if (url.startsWith('http')) {
-await cplayer.play(UrlSource(url));
+await player.play(UrlSource(url));
 } else {
-await cplayer.play(DeviceFileSource(url));
+await player.play(DeviceFileSource(url));
 }
 } catch (e) {
-if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не удалось воспроизвести ГС: $e')));
+if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не удалось воспроизвести ГС: ' + e.toString())));
 }
 },
 ),
@@ -1313,7 +1121,7 @@ if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('
 },
 ),
 ),
-if (creplyTo != null)
+if (replyTo != null)
 Padding(
 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
 child: GlassBox(
@@ -1322,12 +1130,12 @@ blur: true,
 radius: BorderRadius.circular(14),
 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
 child: Row(children: [
-Expanded(child: Text('Ответ: ${creplyTo!['content'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: t.muted, fontSize: 12))),
-IconButton(icon: const Icon(Icons.close, size: 18), onPressed: () => setState(() => creplyTo = null)),
+Expanded(child: Text('Ответ: ' + (replyTo!['content'] ?? '').toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: t.muted, fontSize: 12))),
+IconButton(icon: const Icon(Icons.close, size: 18), onPressed: () => setState(() => replyTo = null)),
 ]),
 ),
 ),
-if (crecording)
+if (recording)
 Padding(
 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
 child: GlassBox(
@@ -1338,10 +1146,10 @@ padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
 child: Row(children: [
 const Icon(Icons.fiber_manual_record, color: Colors.redAccent, size: 14),
 const SizedBox(width: 8),
-Text('Запись ГС: ${crecSecs ~/ 60}:${(crecSecs % 60).toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700)),
+Text('Запись ГС: ' + (recSecs ~/ 60).toString() + ':' + (recSecs % 60).toString().padLeft(2, '0'), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700)),
 const Spacer(),
-IconButton(icon: const Icon(Icons.close, color: Colors.redAccent), onPressed: () => cstopRecording(send: false)),
-IconButton(icon: const Icon(Icons.send_rounded, color: Colors.green), onPressed: () => cstopRecording(send: true)),
+IconButton(icon: const Icon(Icons.close, color: Colors.redAccent), onPressed: () => stopRecording(send: false)),
+IconButton(icon: const Icon(Icons.send_rounded, color: Colors.green), onPressed: () => stopRecording(send: true)),
 ]),
 ),
 ),
@@ -1354,52 +1162,52 @@ radius: BorderRadius.circular(28),
 padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
 child: canWrite
 ? Row(children: [
-IconButton(icon: Icon(Icons.attach_file_rounded, color: t.muted), onPressed: csendDocument),
+IconButton(icon: Icon(Icons.attach_file_rounded, color: t.muted), onPressed: sendDocument),
 Expanded(
 child: Container(
 decoration: BoxDecoration(color: Colors.white.withOpacity(t.isDark ? 0.06 : 0.55), borderRadius: BorderRadius.circular(22)),
 padding: const EdgeInsets.symmetric(horizontal: 6),
 child: Row(children: [
-IconButton(icon: Icon(Icons.emoji_emotions_outlined, color: t.muted), onPressed: () => setState(() => cshowEmoji = !cshowEmoji)),
+IconButton(icon: Icon(Icons.emoji_emotions_outlined, color: t.muted), onPressed: () => setState(() => showEmoji = !showEmoji)),
 Expanded(
 child: TextField(
-controller: cinput,
+controller: inputCtrl,
 style: TextStyle(color: t.text),
 decoration: const InputDecoration(hintText: 'Сообщение...', border: InputBorder.none),
-onSubmitted: (v) => csend(),
+onSubmitted: (v) => sendMsg(),
 ),
 ),
-IconButton(icon: Icon(Icons.photo_camera_outlined, color: t.muted), onPressed: () => csendMedia(fromCamera: false)),
+IconButton(icon: Icon(Icons.photo_camera_outlined, color: t.muted), onPressed: () => sendMedia(fromCamera: false)),
 ]),
 ),
 ),
 const SizedBox(width: 6),
-cinput.text.trim().isEmpty
+inputCtrl.text.trim().isEmpty
 ? IconButton(
 style: IconButton.styleFrom(backgroundColor: t.accent.withOpacity(0.18)),
 icon: Icon(Icons.mic_rounded, color: t.accent),
-onPressed: crecording ? () => cstopRecording(send: true) : cstartRecording,
+onPressed: recording ? () => stopRecording(send: true) : startRecording,
 )
 : IconButton(
 style: IconButton.styleFrom(backgroundColor: t.accent),
 icon: const Icon(Icons.send_rounded, color: Colors.white),
-onPressed: csend,
+onPressed: sendMsg,
 ),
 ])
 : Padding(padding: const EdgeInsets.all(10), child: Text('Только владелец/админ может писать', style: TextStyle(color: t.muted, fontSize: 13))),
 ),
 ),
-if (cshowEmoji)
+if (showEmoji)
 Container(
 color: t.cardSolid,
 height: 240,
 child: GridView.builder(
 padding: const EdgeInsets.all(8),
 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8),
-itemCount: cemojis.length,
+itemCount: kEmojis.length,
 itemBuilder: (ctx, i) => InkWell(
-onTap: () { cinput.text += cemojis[i]; setState(() {}); },
-child: Center(child: Text(cemojis[i], style: const TextStyle(fontSize: 24))),
+onTap: () { inputCtrl.text += kEmojis[i]; setState(() {}); },
+child: Center(child: Text(kEmojis[i], style: const TextStyle(fontSize: 24))),
 ),
 ),
 ),
@@ -1412,12 +1220,13 @@ SizedBox(height: MediaQuery.of(context).padding.bottom),
 );
 }
 }
-const cemojis = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😋','😛','😝','🤪','🤨','🤓','😎','🥳','😏','😒','😞','😔','🙁','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😓','🤗','🤔','🤭','🤫','😶','😐','😑','😬','🙄','😮','😲','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','👍','👎','👌','✌️','🤞','🤟','🤘','🤙','👋','🤝','🙏','💪','❤️','🧡','💛','💚','💙','💜','🖤','⭐','🔥','🎉','🎁'];class _MessageBubble extends StatelessWidget {
+const kEmojis = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😋','😛','😝','🤪','🤨','🤓','😎','🥳','😏','😒','😞','😔','🙁','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😓','🤗','🤔','🤭','🤫','😶','😐','😑','😬','🙄','😮','😲','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','👍','👎','👌','✌️','🤞','🤟','🤘','🤙','👋','🤝','🙏','💪','❤️','🧡','💛','💚','💙','💜','🖤','⭐','🔥','🎉','🎁'];
+class MessageBubble extends StatelessWidget {
 final Map<String, dynamic> msg;
 final bool isOut;
 final VoidCallback onLong;
 final VoidCallback onPlayAudio;
-const _MessageBubble({required this.msg, required this.isOut, required this.onLong, required this.onPlayAudio});
+const MessageBubble({super.key, required this.msg, required this.isOut, required this.onLong, required this.onPlayAudio});
 @override
 Widget build(BuildContext context) {
 final t = themeCtl.theme;
@@ -1455,7 +1264,7 @@ decoration: BoxDecoration(color: Colors.white.withOpacity(0.22), shape: BoxShape
 child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
 ),
 const SizedBox(width: 10),
-Text('ГС • ${msg['duration_sec'] ?? 1} сек', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+Text('ГС • ' + (msg['duration_sec'] ?? 1).toString() + ' сек', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
 ]),
 );
 break;
@@ -1527,39 +1336,39 @@ const OtherProfileScreen({super.key, required this.userId, required this.user});
 @override
 State createState() => OtherProfileScreenState();
 }
-class OtherProfileScreenState extends State<OtherProfileScreen>State {
-final msb = Supabase.instance.client;
-List<Map<String, dynamic>> mgifts = [];
-List<Map<String, dynamic>> mcatalog = [];
+class OtherProfileScreenState extends State {
+final sb = Supabase.instance.client;
+List<Map<String, dynamic>> giftsList = [];
+List<Map<String, dynamic>> catalogList = [];
 @override
 void initState() {
 super.initState();
-mload();
+loadProfile();
 }
-Future mload() async {
-final g = await msb.from('user_gifts').select('').eq('recipient_id', widget.userId).eq('is_hidden', false).order('created_at', ascending: false).limit(30);
-final c = await msb.from('gifts').select('');
+Future loadProfile() async {
+final g = await sb.from('user_gifts').select('').eq('recipient_id', widget.userId).eq('is_hidden', false).order('created_at', ascending: false).limit(30);
+final c = await sb.from('gifts').select('');
 if (mounted) {
 setState(() {
-mgifts = List<Map<String, dynamic>>.from(g);
-mcatalog = List<Map<String, dynamic>>.from(c);
+giftsList = List<Map<String, dynamic>>.from(g);
+catalogList = List<Map<String, dynamic>>.from(c);
 });
 }
 }
-Future mopenDirectChat() async {
+Future openDirectChat() async {
 try {
-final r = await msb.rpc('get_or_create_direct_chat', params: {'other_user_id': widget.userId});
+final r = await sb.rpc('get_or_create_direct_chat', params: {'other_user_id': widget.userId});
 final id = r as String;
-final chats = await msb.from('chats').select('*').eq('id', id).single();
-final allParts = await msb.from('chat_participants').select('user_id, role').eq('chat_id', id);
-final me = msb.auth.currentUser!.id;
+final chats = await sb.from('chats').select('*').eq('id', id).single();
+final allParts = await sb.from('chat_participants').select('user_id, role').eq('chat_id', id);
+final me = sb.auth.currentUser!.id;
 final myRole = (allParts as List).firstWhere((p) => p['user_id'] == me, orElse: () => {'role': 'member'})['role'];
 final c = Map<String, dynamic>.from(chats);
 c['other'] = widget.user;
 c['my_role'] = myRole;
 if (mounted) Navigator.pushReplacement(context, CupertinoPageRoute(builder: (ctx) => ChatScreen(chat: c)));
 } catch (e) {
-if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
 }
 }
 @override
@@ -1587,18 +1396,18 @@ child: Column(children: [
 AvatarView(name: widget.user['name'], username: widget.user['username'], url: widget.user['avatar_url'], color: widget.user['avatar_color'], size: 88),
 const SizedBox(height: 12),
 Text(widget.user['name'] ?? 'Без имени', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
-Text('@${widget.user['username'] ?? ''}', style: TextStyle(color: t.accent, fontWeight: FontWeight.w600)),
+Text('@' + (widget.user['username'] ?? '').toString(), style: TextStyle(color: t.accent, fontWeight: FontWeight.w600)),
 if ((widget.user['bio'] ?? '').toString().isNotEmpty)
 Padding(padding: const EdgeInsets.only(top: 10), child: Text(widget.user['bio'], style: TextStyle(color: t.muted), textAlign: TextAlign.center)),
 const SizedBox(height: 16),
 Row(children: [
-Expanded(child: FilledButton(style: FilledButton.styleFrom(backgroundColor: t.accent), onPressed: mopenDirectChat, child: const Text('Написать'))),
+Expanded(child: FilledButton(style: FilledButton.styleFrom(backgroundColor: t.accent), onPressed: openDirectChat, child: const Text('Написать'))),
 const SizedBox(width: 8),
 Expanded(
 child: OutlinedButton(
 onPressed: () async {
 await GiftShopDialog.open(context, recipientId: widget.userId, recipientName: widget.user['name'] ?? widget.user['username'] ?? '');
-mload();
+loadProfile();
 },
 child: const Text('🎁 Подарить'),
 ),
@@ -1607,19 +1416,19 @@ child: const Text('🎁 Подарить'),
 ]),
 ),
 const SizedBox(height: 16),
-Align(alignment: Alignment.centerLeft, child: Text('Подарки (${mgifts.length})', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700))),
+Align(alignment: Alignment.centerLeft, child: Text('Подарки (' + giftsList.length.toString() + ')', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700))),
 const SizedBox(height: 8),
-if (mgifts.isEmpty)
+if (giftsList.isEmpty)
 Padding(padding: const EdgeInsets.all(20), child: Text('Подарков пока нет', style: TextStyle(color: t.muted)))
 else
 GridView.builder(
 shrinkWrap: true,
 physics: const NeverScrollableScrollPhysics(),
 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 105, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
-itemCount: mgifts.length,
+itemCount: giftsList.length,
 itemBuilder: (ctx, i) {
-final g = mgifts[i];
-final gift = mcatalog.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
+final g = giftsList[i];
+final gift = catalogList.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
 return GlassBox(
 theme: t,
 blur: false,
@@ -1651,29 +1460,29 @@ const GroupScreen({super.key, required this.chat});
 @override
 State createState() => GroupScreenState();
 }
-class GroupScreenState extends State<GroupScreen> {
-final msb = Supabase.instance.client;
-List<Map<String, dynamic>> mmembers = [];
-Map<String, dynamic> mchat = {};
+class GroupScreenState extends State {
+final sb = Supabase.instance.client;
+List<Map<String, dynamic>> membersList = [];
+Map<String, dynamic> chatData = {};
 @override
 void initState() {
 super.initState();
-mchat = Map.of(widget.chat);
-mload();
+chatData = Map.of(widget.chat);
+loadGroup();
 }
-Future mload() async {
-final parts = await msb.from('chat_participants').select('user_id, role, profiles:user_id(id, username, name, avatar_color, avatar_url)').eq('chat_id', mchat['id']);
-final c = await msb.from('chats').select('*').eq('id', mchat['id']).single();
+Future loadGroup() async {
+final parts = await sb.from('chat_participants').select('user_id, role, profiles:user_id(id, username, name, avatar_color, avatar_url)').eq('chat_id', chatData['id']);
+final c = await sb.from('chats').select('*').eq('id', chatData['id']).single();
 if (mounted) {
 setState(() {
-mmembers = List<Map<String, dynamic>>.from(parts);
-mchat = Map<String, dynamic>.from(c);
+membersList = List<Map<String, dynamic>>.from(parts);
+chatData = Map<String, dynamic>.from(c);
 });
 }
 }
-String get mmyRole => mchat['my_role'] ?? 'member';
-bool get mcanEdit => mmyRole == 'owner' || mmyRole == 'admin';
-bool get misOwner => mmyRole == 'owner';
+String get myRole => chatData['my_role'] ?? 'member';
+bool get canEdit => myRole == 'owner' || myRole == 'admin';
+bool get isOwner => myRole == 'owner';
 @override
 Widget build(BuildContext context) {
 final t = themeCtl.theme;
@@ -1694,14 +1503,14 @@ blur: true,
 radius: BorderRadius.circular(28),
 padding: const EdgeInsets.all(20),
 child: Column(children: [
-AvatarView(name: mchat['title'], username: mchat['username'], url: mchat['avatar_url'], size: 88),
+AvatarView(name: chatData['title'], username: chatData['username'], url: chatData['avatar_url'], size: 88),
 const SizedBox(height: 12),
-Text(mchat['title'] ?? 'Без названия', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
-if (mchat['username'] != null) Text('@${mchat['username']}', style: TextStyle(color: t.accent)),
-Text(mchat['type'] == 'channel' ? 'Канал' : 'Группа', style: TextStyle(color: t.muted, fontSize: 12)),
+Text(chatData['title'] ?? 'Без названия', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
+if (chatData['username'] != null) Text('@' + chatData['username'].toString(), style: TextStyle(color: t.accent)),
+Text(chatData['type'] == 'channel' ? 'Канал' : 'Группа', style: TextStyle(color: t.muted, fontSize: 12)),
 const SizedBox(height: 16),
-if (mcanEdit) SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: t.accent), onPressed: meditGroup, child: const Text('✏️ Редактировать'))),
-if (misOwner)
+if (canEdit) SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: t.accent), onPressed: editGroup, child: const Text('✏️ Редактировать'))),
+if (isOwner)
 Padding(
 padding: const EdgeInsets.only(top: 8),
 child: SizedBox(
@@ -1709,17 +1518,17 @@ width: double.infinity,
 child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
 onPressed: () async {
-if (!await mconfirm('Удалить навсегда?')) return;
+if (!await confirmAction('Удалить навсегда?')) return;
 try {
-await msb.rpc('delete_chat', params: {'p_chat_id': mchat['id']});
+await sb.rpc('delete_chat', params: {'p_chat_id': chatData['id']});
 if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
-} catch (err) {}
+} catch (e) {}
 },
 child: const Text('🗑 Удалить'),
 ),
 ),
 ),
-if (!misOwner)
+if (!isOwner)
 Padding(
 padding: const EdgeInsets.only(top: 8),
 child: SizedBox(
@@ -1727,11 +1536,11 @@ width: double.infinity,
 child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
 onPressed: () async {
-if (!await mconfirm('Покинуть чат?')) return;
+if (!await confirmAction('Покинуть чат?')) return;
 try {
-await msb.rpc('leave_chat', params: {'p_chat_id': mchat['id']});
+await sb.rpc('leave_chat', params: {'p_chat_id': chatData['id']});
 if (mounted) Navigator.popUntil(context, (r) => r.isFirst);
-} catch (err) {}
+} catch (e) {}
 },
 child: const Text('🚪 Покинуть'),
 ),
@@ -1740,9 +1549,9 @@ child: const Text('🚪 Покинуть'),
 ]),
 ),
 const SizedBox(height: 20),
-Text('Участники (${mmembers.length})', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700)),
+Text('Участники (' + membersList.length.toString() + ')', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700)),
 const SizedBox(height: 8),
-...mmembers.map((m) {
+...membersList.map((m) {
 final p = m['profiles'] ?? {};
 final role = m['role'] ?? 'member';
 final roleLabel = role == 'owner' ? 'Владелец' : role == 'admin' ? 'Админ' : 'Участник';
@@ -1758,7 +1567,7 @@ AvatarView(name: p['name'], username: p['username'], url: p['avatar_url'], color
 const SizedBox(width: 10),
 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 Text(p['name'] ?? p['username'] ?? 'Участник', style: TextStyle(fontWeight: FontWeight.w600, color: t.text)),
-Text('@${p['username'] ?? ''}', style: TextStyle(fontSize: 11.5, color: t.muted)),
+Text('@' + (p['username'] ?? '').toString(), style: TextStyle(fontSize: 11.5, color: t.muted)),
 ])),
 Container(
 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1778,20 +1587,20 @@ child: Text(roleLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w70
 ),
 );
 }
-Future meditGroup() async {
+Future editGroup() async {
 final t = themeCtl.theme;
-final title = TextEditingController(text: mchat['title'] ?? '');
-final uname = TextEditingController(text: mchat['username'] ?? '');
-final desc = TextEditingController(text: mchat['description'] ?? '');
+final titleCtrl = TextEditingController(text: chatData['title'] ?? '');
+final unameCtrl = TextEditingController(text: chatData['username'] ?? '');
+final descCtrl = TextEditingController(text: chatData['description'] ?? '');
 showDialog(
 context: context,
 builder: (ctx) => AlertDialog(
 backgroundColor: t.cardSolid,
 title: const Text('Редактировать'),
 content: Column(mainAxisSize: MainAxisSize.min, children: [
-TextField(controller: title, decoration: const InputDecoration(labelText: 'Название')),
-TextField(controller: uname, decoration: const InputDecoration(labelText: '@username')),
-TextField(controller: desc, maxLines: 3, decoration: const InputDecoration(labelText: 'Описание')),
+TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Название')),
+TextField(controller: unameCtrl, decoration: const InputDecoration(labelText: '@username')),
+TextField(controller: descCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Описание')),
 ]),
 actions: [
 TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
@@ -1800,9 +1609,9 @@ style: FilledButton.styleFrom(backgroundColor: t.accent),
 onPressed: () async {
 Navigator.pop(ctx);
 try {
-await msb.rpc('update_chat_info', params: {'p_chat_id': mchat['id'], 'p_title': title.text.trim(), 'p_description': desc.text.trim(), 'p_username': uname.text.trim()});
-mload();
-} catch (err) {}
+await sb.rpc('update_chat_info', params: {'p_chat_id': chatData['id'], 'p_title': titleCtrl.text.trim(), 'p_description': descCtrl.text.trim(), 'p_username': unameCtrl.text.trim()});
+loadGroup();
+} catch (e) {}
 },
 child: const Text('Сохранить'),
 ),
@@ -1810,7 +1619,7 @@ child: const Text('Сохранить'),
 ),
 );
 }
-Future mconfirm(String text) async {
+Future confirmAction(String text) async {
 final r = await showDialog(
 context: context,
 builder: (ctx) => AlertDialog(
@@ -1830,28 +1639,28 @@ const SearchTab({super.key});
 State createState() => SearchTabState();
 }
 class SearchTabState extends State {
-final msb = Supabase.instance.client;
-final mq = TextEditingController();
-List<Map<String, dynamic>> mresults = [];
-Timer? mdeb;
-bool mloading = false;
+final sb = Supabase.instance.client;
+final queryCtrl = TextEditingController();
+List<Map<String, dynamic>> resultsList = [];
+Timer? debTimer;
+bool loading = false;
 @override
 void dispose() {
-mq.dispose();
-mdeb?.cancel();
+queryCtrl.dispose();
+debTimer?.cancel();
 super.dispose();
 }
-Future mrun(String q) async {
+Future runSearch(String q) async {
 if (q.trim().isEmpty) {
-setState(() => mresults = []);
+setState(() => resultsList = []);
 return;
 }
-setState(() => mloading = true);
+setState(() => loading = true);
 try {
-final r = await msb.rpc('global_search', params: {'p_query': q.trim()});
-if (mounted) setState(() => mresults = List<Map<String, dynamic>>.from(r));
-} catch (err) {} finally {
-if (mounted) setState(() => mloading = false);
+final r = await sb.rpc('global_search', params: {'p_query': q.trim()});
+if (mounted) setState(() => resultsList = List<Map<String, dynamic>>.from(r));
+} catch (e) {} finally {
+if (mounted) setState(() => loading = false);
 }
 }
 @override
@@ -1866,27 +1675,27 @@ blur: true,
 radius: BorderRadius.circular(22),
 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
 child: TextField(
-controller: mq,
+controller: queryCtrl,
 style: TextStyle(color: t.text),
 decoration: const InputDecoration(hintText: 'Поиск людей, групп, каналов', border: InputBorder.none, icon: Icon(Icons.search_rounded)),
 onChanged: (v) {
-mdeb?.cancel();
-mdeb = Timer(const Duration(milliseconds: 300), () => mrun(v));
+debTimer?.cancel();
+debTimer = Timer(const Duration(milliseconds: 300), () => runSearch(v));
 },
 ),
 ),
 ),
 Expanded(
-child: mloading
+child: loading
 ? Center(child: CircularProgressIndicator(color: t.accent))
-: mresults.isEmpty
+: resultsList.isEmpty
 ? Center(child: Text('Введите @username или название', style: TextStyle(color: t.muted)))
 : ListView.builder(
 padding: const EdgeInsets.only(bottom: 95),
 physics: const BouncingScrollPhysics(),
-itemCount: mresults.length,
+itemCount: resultsList.length,
 itemBuilder: (ctx, i) {
-final r = mresults[i];
+final r = resultsList[i];
 final isUser = r['kind'] == 'user';
 return Padding(
 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
@@ -1899,16 +1708,16 @@ leading: isUser
 ? AvatarView(name: r['name'], username: r['username'], url: r['avatar_url'], color: r['avatar_color'], size: 42)
 : CircleAvatar(backgroundColor: colorFor(r['username']), child: Text(r['bio'] == 'channel' ? '📢' : '👥')),
 title: Text(r['name'] ?? 'Без имени', style: TextStyle(color: t.text, fontWeight: FontWeight.w700)),
-subtitle: Text(isUser ? '@${r['username'] ?? ''}' : (r['bio'] == 'channel' ? 'Публичный канал' : 'Публичная группа'), style: TextStyle(color: t.muted, fontSize: 12)),
+subtitle: Text(isUser ? '@' + (r['username'] ?? '').toString() : (r['bio'] == 'channel' ? 'Публичный канал' : 'Публичная группа'), style: TextStyle(color: t.muted, fontSize: 12)),
 trailing: isUser
 ? null
 : FilledButton(
 style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(horizontal: 12)),
 onPressed: () async {
 try {
-await msb.rpc('join_public_chat', params: {'p_chat_id': r['id']});
+await sb.rpc('join_public_chat', params: {'p_chat_id': r['id']});
 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Вы вступили')));
-} catch (err) {}
+} catch (e) {}
 },
 child: const Text('Вступить'),
 ),
@@ -1925,45 +1734,51 @@ onTap: isUser ? () => Navigator.push(context, CupertinoPageRoute(builder: (c2) =
 class ProfileTab extends StatefulWidget {
 const ProfileTab({super.key});
 @override
-State createState() => _ProfileTabState();
+State createState() => ProfileTabState();
 }
-class _ProfileTabState extends State {
-final _sb = Supabase.instance.client;
-Map<String, dynamic>? _profile;
-List<Map<String, dynamic>> _gifts = [];
-List<Map<String, dynamic>> _catalog = [];
-bool _vibro = true;
-bool _hideOnline = false;
+class ProfileTabState extends State {
+final sb = Supabase.instance.client;
+Map<String, dynamic>? profileData;
+List<Map<String, dynamic>> giftsList = [];
+List<Map<String, dynamic>> catalogList = [];
+bool vibroOn = true;
+bool hideOnline = false;
 @override
 void initState() {
 super.initState();
-_load();
+loadMyProfile();
 }
-Future _load() async {
-final me = _sb.auth.currentUser!.id;
-final p = await _sb.from('profiles').select('').eq('id', me).single();
-final g = await _sb.from('user_gifts').select('').eq('recipient_id', me).order('created_at', ascending: false).limit(60);
-final c = await _sb.from('gifts').select('*');
-if (mounted) setState(() { _profile = p; _gifts = List.from(g); _catalog = List.from(c); });
+Future loadMyProfile() async {
+final me = sb.auth.currentUser!.id;
+final p = await sb.from('profiles').select('').eq('id', me).single();
+final g = await sb.from('user_gifts').select('').eq('recipient_id', me).order('created_at', ascending: false).limit(60);
+final c = await sb.from('gifts').select('*');
+if (mounted) {
+setState(() {
+profileData = p;
+giftsList = List.from(g);
+catalogList = List.from(c);
+});
 }
-Future _changeAvatar() async {
+}
+Future changeAvatar() async {
 final picker = ImagePicker();
 final f = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 400, maxHeight: 400);
 if (f == null) return;
 try {
-final me = _sb.auth.currentUser!.id;
-final path = 'avatars/{me}_{DateTime.now().millisecondsSinceEpoch}.jpg';
-await _sb.storage.from(AppConfig.mediaBucket).upload(path, File(f.path));
-final url = _sb.storage.from(AppConfig.mediaBucket).getPublicUrl(path);
-await _sb.from('profiles').update({'avatar_url': url}).eq('id', me);
-_load();
+final me = sb.auth.currentUser!.id;
+final path = 'avatars/' + me + '_' + DateTime.now().millisecondsSinceEpoch.toString() + '.jpg';
+await sb.storage.from(AppConfig.mediaBucket).upload(path, File(f.path));
+final url = sb.storage.from(AppConfig.mediaBucket).getPublicUrl(path);
+await sb.from('profiles').update({'avatar_url': url}).eq('id', me);
+loadMyProfile();
 } catch (e) {
-if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: ' + e.toString())));
 }
 }
-void _editProfile() {
+void editProfile() {
 final t = themeCtl.theme;
-final p = _profile;
+final p = profileData;
 if (p == null) return;
 final nameCtrl = TextEditingController(text: p['name'] ?? '');
 final userCtrl = TextEditingController(text: p['username'] ?? '');
@@ -1971,7 +1786,7 @@ final bioCtrl = TextEditingController(text: p['bio'] ?? '');
 String selectedColor = p['avatar_color'] ?? '#10B981';
 showDialog(
 context: context,
-builder: (_) => StatefulBuilder(
+builder: (ctx) => StatefulBuilder(
 builder: (context, setLocal) => AlertDialog(
 backgroundColor: t.cardSolid,
 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -2003,20 +1818,20 @@ decoration: BoxDecoration(color: hexColor(hex), shape: BoxShape.circle, border: 
 ]),
 ),
 actions: [
-TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
 FilledButton(
 style: FilledButton.styleFrom(backgroundColor: t.accent),
 onPressed: () async {
 final newUser = userCtrl.text.trim().toLowerCase().replaceAll('@', '');
 if (newUser.isEmpty) return;
-Navigator.pop(context);
+Navigator.pop(ctx);
 try {
-final me = _sb.auth.currentUser!.id;
-await _sb.from('profiles').update({'name': nameCtrl.text.trim(), 'username': newUser, 'bio': bioCtrl.text.trim(), 'avatar_color': selectedColor}).eq('id', me);
-_load();
+final me = sb.auth.currentUser!.id;
+await sb.from('profiles').update({'name': nameCtrl.text.trim(), 'username': newUser, 'bio': bioCtrl.text.trim(), 'avatar_color': selectedColor}).eq('id', me);
+loadMyProfile();
 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Профиль обновлён')));
 } catch (e) {
-if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: ' + e.toString())));
 }
 },
 child: const Text('Сохранить'),
@@ -2026,14 +1841,14 @@ child: const Text('Сохранить'),
 ),
 );
 }
-void _openThemeSettings() {
+void openThemeSettings() {
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
 isScrollControlled: true,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: (_) => StatefulBuilder(
+builder: (ctx) => StatefulBuilder(
 builder: (context, setLocal) => Padding(
 padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
 child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2048,7 +1863,11 @@ ButtonSegment(value: ThemeMode3.frosted, label: Text('Матовое')),
 ButtonSegment(value: ThemeMode3.solid, label: Text('Плоский')),
 ],
 selected: {themeCtl.theme.mode},
-onSelectionChanged: (s) { themeCtl.update(themeCtl.theme.copyWith(mode: s.first)); setLocal(() {}); setState(() {}); },
+onSelectionChanged: (s) {
+themeCtl.update(themeCtl.theme.copyWith(mode: s.first));
+setLocal(() {});
+setState(() {});
+},
 ),
 const SizedBox(height: 12),
 Text('База', style: TextStyle(color: t.muted, fontSize: 12)),
@@ -2056,7 +1875,11 @@ const SizedBox(height: 6),
 SegmentedButton(
 segments: const [ButtonSegment(value: Brightness.dark, label: Text('Тёмная')), ButtonSegment(value: Brightness.light, label: Text('Светлая'))],
 selected: {themeCtl.theme.base},
-onSelectionChanged: (s) { themeCtl.update(themeCtl.theme.copyWith(base: s.first)); setLocal(() {}); setState(() {}); },
+onSelectionChanged: (s) {
+themeCtl.update(themeCtl.theme.copyWith(base: s.first));
+setLocal(() {});
+setState(() {});
+},
 ),
 const SizedBox(height: 12),
 Text('Фон-градиент', style: TextStyle(color: t.muted, fontSize: 12)),
@@ -2068,7 +1891,11 @@ final names = ['База', 'Океан', 'Закат', 'Космос', 'Изум
 return ChoiceChip(
 label: Text(names[idx]),
 selected: themeCtl.theme.bgIndex == idx,
-onSelected: (_) { themeCtl.update(themeCtl.theme.copyWith(bgIndex: idx)); setLocal(() {}); setState(() {}); },
+onSelected: (v) {
+themeCtl.update(themeCtl.theme.copyWith(bgIndex: idx));
+setLocal(() {});
+setState(() {});
+},
 );
 }),
 ),
@@ -2078,7 +1905,11 @@ const SizedBox(height: 8),
 Wrap(
 spacing: 10,
 children: kAccents.map((c) => GestureDetector(
-onTap: () { themeCtl.update(themeCtl.theme.copyWith(accent: c)); setLocal(() {}); setState(() {}); },
+onTap: () {
+themeCtl.update(themeCtl.theme.copyWith(accent: c));
+setLocal(() {});
+setState(() {});
+},
 child: Container(
 width: 34,
 height: 34,
@@ -2092,13 +1923,13 @@ const SizedBox(height: 20),
 ),
 );
 }
-void _openExtraSettings() {
+void openExtraSettings() {
 final t = themeCtl.theme;
 showModalBottomSheet(
 context: context,
 backgroundColor: t.cardSolid,
 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: (_) => StatefulBuilder(
+builder: (ctx) => StatefulBuilder(
 builder: (context, setLocal) => SafeArea(
 child: Padding(
 padding: const EdgeInsets.all(16),
@@ -2107,22 +1938,28 @@ Text('Настройки приложения', style: TextStyle(fontSize: 18, f
 const SizedBox(height: 8),
 SwitchListTile(
 title: Text('Тактильный отклик (вибрация)', style: TextStyle(color: t.text)),
-value: _vibro,
+value: vibroOn,
 activeColor: t.accent,
-onChanged: (v) { setLocal(() => _vibro = v); setState(() => _vibro = v); },
+onChanged: (v) {
+setLocal(() => vibroOn = v);
+setState(() => vibroOn = v);
+},
 ),
 SwitchListTile(
 title: Text('Скрывать время последнего входа', style: TextStyle(color: t.text)),
-value: _hideOnline,
+value: hideOnline,
 activeColor: t.accent,
-onChanged: (v) { setLocal(() => _hideOnline = v); setState(() => _hideOnline = v); },
+onChanged: (v) {
+setLocal(() => hideOnline = v);
+setState(() => hideOnline = v);
+},
 ),
 ListTile(
 leading: Icon(Icons.cleaning_services_outlined, color: t.accent),
 title: Text('Очистить кэш изображений', style: TextStyle(color: t.text)),
 onTap: () {
 PaintingBinding.instance.imageCache.clear();
-Navigator.pop(context);
+Navigator.pop(ctx);
 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Кэш успешно очищен')));
 },
 ),
@@ -2137,212 +1974,206 @@ subtitle: Text('1.0.0 Native • Liquid Glass iOS 26', style: TextStyle(color: t
 ),
 );
 }
-  void _openTopUp() {
-    final t = themeCtl.theme;
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: t.cardSolid,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Пополнить звёзды'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('Укажите @${_profile?['username']} в комментарии к донату', style: TextStyle(fontSize: 12, color: t.muted)),
-          const SizedBox(height: 12),
-          ...AppConfig.donatePackages.map((p) => ListTile(
-            title: Text('${fmtStars(p['stars'])} ★', style: TextStyle(color: t.accent, fontWeight: FontWeight.w700)),
-            subtitle: Text(p['label']),
-            trailing: Text(p['price']),
-            onTap: () async {
-              final url = Uri.parse('${AppConfig.donateUrl}?amount=${p['stars']}&comment=@${_profile?['username']}+${p['stars']}+stars');
-              if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
-            },
-          )),
-        ]),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = themeCtl.theme;
-    final p = _profile;
-    if (p == null) return Center(child: CircularProgressIndicator(color: t.accent));
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
-      physics: const BouncingScrollPhysics(),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        GlassBox(
-          theme: t,
-          blur: true,
-          padding: const EdgeInsets.all(20),
-          radius: BorderRadius.circular(28),
-          child: Column(children: [
-            Stack(children: [
-              AvatarView(name: p['name'], username: p['username'], url: p['avatar_url'], color: p['avatar_color'], size: 88),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: GestureDetector(
-                  onTap: _changeAvatar,
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(color: t.accent, shape: BoxShape.circle, border: Border.all(color: t.cardSolid, width: 2)),
-                    child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
-                  ),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            Text(p['name'] ?? 'Без имени', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
-            Text('@${p['username'] ?? ''}', style: TextStyle(color: t.accent, fontWeight: FontWeight.w600)),
-            if ((p['bio'] ?? '').toString().isNotEmpty)
-              Padding(padding: const EdgeInsets.only(top: 8), child: Text(p['bio'], style: TextStyle(color: t.muted, fontSize: 13), textAlign: TextAlign.center)),
-            const SizedBox(height: 14),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(color: Colors.amber.withOpacity(0.16), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber.withOpacity(0.45))),
-                child: Text('⭐ ${fmtStars(p['stars'])}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w800)),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
-                onPressed: _openTopUp,
-                child: const Text('Пополнить ★', style: TextStyle(fontWeight: FontWeight.w700)),
-              ),
-            ]),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                onPressed: () async {
-                  await GiftShopDialog.open(context, recipientId: _sb.auth.currentUser!.id, recipientName: p['name'] ?? 'себе', selfGift: true);
-                  _load();
-                },
-                child: const Text('🎁 Подарить себе ★', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
-              ),
-            ),
-          ]),
-        ),
-        if (_gifts.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text('Подарки (${_gifts.length})', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700)),
-          ),
-          const SizedBox(height: 6),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 100, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
-            itemCount: _gifts.length,
-            itemBuilder: (_, i) {
-              final g = _gifts[i];
-              final gift = _catalog.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
-              return GlassBox(
-                theme: t,
-                blur: false,
-                radius: BorderRadius.circular(16),
-                padding: const EdgeInsets.all(6),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(gift['emoji'] ?? '🎁', style: const TextStyle(fontSize: 24)),
-                  const SizedBox(height: 3),
-                  Text(gift['title'] ?? 'Подарок', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: t.text), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
-                ]),
-              );
-            },
-          ),
-        ],
-        const SizedBox(height: 12),
-        _row('✏️ Редактировать профиль', _editProfile),
-        _row('🎨 Оформление и темы (Liquid iOS 26)', _openThemeSettings),
-        _row('⚙️ Настройки приложения и приватность', _openExtraSettings),
-        _row('🚪 Выйти из аккаунта', () async {
-          await _sb.auth.signOut();
-        }),
-      ]),
-    );
-  }
-
-  Widget _row(String label, VoidCallback onTap) {
-    final t = themeCtl.theme;
-    return Padding(
-      padding: const EdgeInsets.only(top: 7),
-      child: GlassBox(
-        theme: t,
-        blur: false,
-        radius: BorderRadius.circular(18),
-        child: ListTile(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: Text(label, style: TextStyle(color: t.text, fontSize: 14.5, fontWeight: FontWeight.w600)),
-          trailing: Icon(Icons.chevron_right_rounded, color: t.muted, size: 22),
-          onTap: onTap,
-        ),
-      ),
-    );
-  }
+void openTopUp() {
+final t = themeCtl.theme;
+showDialog(
+context: context,
+builder: (ctx) => AlertDialog(
+backgroundColor: t.cardSolid,
+shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+title: const Text('Пополнить звёзды'),
+content: Column(mainAxisSize: MainAxisSize.min, children: [
+Text('Укажите @' + (profileData?['username'] ?? '').toString() + ' в комментарии к донату', style: TextStyle(fontSize: 12, color: t.muted)),
+const SizedBox(height: 12),
+...AppConfig.donatePackages.map((p) => ListTile(
+title: Text(fmtStars(p['stars']) + ' ★', style: TextStyle(color: t.accent, fontWeight: FontWeight.w700)),
+subtitle: Text(p['label']),
+trailing: Text(p['price']),
+onTap: () async {
+final url = Uri.parse(AppConfig.donateUrl + '?amount=' + p['stars'].toString() + '&comment=@' + (profileData?['username'] ?? '').toString() + '+' + p['stars'].toString() + '+stars');
+if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
+},
+)),
+]),
+),
+);
 }
-
+@override
+Widget build(BuildContext context) {
+final t = themeCtl.theme;
+final p = profileData;
+if (p == null) return Center(child: CircularProgressIndicator(color: t.accent));
+return SingleChildScrollView(
+padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+physics: const BouncingScrollPhysics(),
+child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+GlassBox(
+theme: t,
+blur: true,
+padding: const EdgeInsets.all(20),
+radius: BorderRadius.circular(28),
+child: Column(children: [
+Stack(children: [
+AvatarView(name: p['name'], username: p['username'], url: p['avatar_url'], color: p['avatar_color'], size: 88),
+Positioned(
+right: 0,
+bottom: 0,
+child: GestureDetector(
+onTap: changeAvatar,
+child: Container(
+width: 28,
+height: 28,
+decoration: BoxDecoration(color: t.accent, shape: BoxShape.circle, border: Border.all(color: t.cardSolid, width: 2)),
+child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+),
+),
+),
+]),
+const SizedBox(height: 12),
+Text(p['name'] ?? 'Без имени', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
+Text('@' + (p['username'] ?? '').toString(), style: TextStyle(color: t.accent, fontWeight: FontWeight.w600)),
+if ((p['bio'] ?? '').toString().isNotEmpty)
+Padding(padding: const EdgeInsets.only(top: 8), child: Text(p['bio'], style: TextStyle(color: t.muted, fontSize: 13), textAlign: TextAlign.center)),
+const SizedBox(height: 14),
+Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+Container(
+padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+decoration: BoxDecoration(color: Colors.amber.withOpacity(0.16), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber.withOpacity(0.45))),
+child: Text('⭐ ' + fmtStars(p['stars']), style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w800)),
+),
+const SizedBox(width: 8),
+FilledButton(
+style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
+onPressed: openTopUp,
+child: const Text('Пополнить ★', style: TextStyle(fontWeight: FontWeight.w700)),
+),
+]),
+const SizedBox(height: 10),
+SizedBox(
+width: double.infinity,
+child: FilledButton(
+style: FilledButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+onPressed: () async {
+await GiftShopDialog.open(context, recipientId: sb.auth.currentUser!.id, recipientName: p['name'] ?? 'себе', selfGift: true);
+loadMyProfile();
+},
+child: const Text('🎁 Подарить себе ★', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
+),
+),
+]),
+),
+if (giftsList.isNotEmpty) ...[
+const SizedBox(height: 14),
+Padding(
+padding: const EdgeInsets.symmetric(horizontal: 4),
+child: Text('Подарки (' + giftsList.length.toString() + ')', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700)),
+),
+const SizedBox(height: 6),
+GridView.builder(
+shrinkWrap: true,
+physics: const NeverScrollableScrollPhysics(),
+gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 100, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
+itemCount: giftsList.length,
+itemBuilder: (ctx, i) {
+final g = giftsList[i];
+final gift = catalogList.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
+return GlassBox(
+theme: t,
+blur: false,
+radius: BorderRadius.circular(16),
+padding: const EdgeInsets.all(6),
+child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+Text(gift['emoji'] ?? '🎁', style: const TextStyle(fontSize: 24)),
+const SizedBox(height: 3),
+Text(gift['title'] ?? 'Подарок', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: t.text), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+]),
+);
+},
+),
+],
+const SizedBox(height: 12),
+menuRow('✏️ Редактировать профиль', editProfile),
+menuRow('🎨 Оформление и темы (Liquid iOS 26)', openThemeSettings),
+menuRow('⚙️ Настройки приложения и приватность', openExtraSettings),
+menuRow('🚪 Выйти из аккаунта', () async { await sb.auth.signOut(); }),
+]),
+);
+}
+Widget menuRow(String label, VoidCallback onTap) {
+final t = themeCtl.theme;
+return Padding(
+padding: const EdgeInsets.only(top: 7),
+child: GlassBox(
+theme: t,
+blur: false,
+radius: BorderRadius.circular(18),
+child: ListTile(
+shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+title: Text(label, style: TextStyle(color: t.text, fontSize: 14.5, fontWeight: FontWeight.w600)),
+trailing: Icon(Icons.chevron_right_rounded, color: t.muted, size: 22),
+onTap: onTap,
+),
+),
+);
+}
+}
 class GiftShopDialog {
-  static Future<void> open(BuildContext context, {required String recipientId, required String recipientName, bool selfGift = false}) async {
-    final sb = Supabase.instance.client;
-    final t = themeCtl.theme;
-    final catalog = List<Map<String, dynamic>>.from(await sb.from('gifts').select('*').order('sort_order', ascending: true));
-    if (!context.mounted) return;
-    String? selectedCode;
-    final note = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: t.cardSolid,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-      builder: (_) => StatefulBuilder(builder: (context, setLocal) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('Подарок для $recipientName', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: t.text)),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 320,
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.4),
-                itemCount: catalog.length,
-                itemBuilder: (_, i) {
-                  final g = catalog[i];
-                  final selected = selectedCode == g['code'];
-                  return GestureDetector(
-                    onTap: () => setLocal(() => selectedCode = g['code']),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: t.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: selected ? Colors.amber : t.border, width: selected ? 2 : 1)),
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text(g['emoji'] ?? '🎁', style: const TextStyle(fontSize: 34)),
-                        const SizedBox(height: 4),
-                        Text(g['title'] ?? 'Подарок', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: t.text), maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
-                        Text('${fmtStars(g['price'])} ★', style: const TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.w700)),
-                      ]),
-                    ),
-                  );
-                },
-              ),
-            ),
-            TextField(controller: note, decoration: const InputDecoration(labelText: 'Подпись к подарку')),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
+static Future open(BuildContext context, {required String recipientId, required String recipientName, bool selfGift = false}) async {
+final sb = Supabase.instance.client;
+final t = themeCtl.theme;
+final catalog = List<Map<String, dynamic>>.from(await sb.from('gifts').select('*').order('sort_order', ascending: true));
+if (!context.mounted) return;
+String? selectedCode;
+final noteCtrl = TextEditingController();
+showModalBottomSheet(
+context: context,
+isScrollControlled: true,
+backgroundColor: t.cardSolid,
+shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+builder: (ctx) => StatefulBuilder(builder: (context, setLocal) {
+return Padding(
+padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
+child: Column(mainAxisSize: MainAxisSize.min, children: [
+Text('Подарок для ' + recipientName, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: t.text)),
+const SizedBox(height: 12),
+SizedBox(
+height: 320,
+child: GridView.builder(
+gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.4),
+itemCount: catalog.length,
+itemBuilder: (c2, i) {
+final g = catalog[i];
+final selected = selectedCode == g['code'];
+return GestureDetector(
+onTap: () => setLocal(() => selectedCode = g['code']),
+child: Container(
+padding: const EdgeInsets.all(10),
+decoration: BoxDecoration(color: t.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: selected ? Colors.amber : t.border, width: selected ? 2 : 1)),
+child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+Text(g['emoji'] ?? '🎁', style: const TextStyle(fontSize: 34)),
+const SizedBox(height: 4),
+Text(g['title'] ?? 'Подарок', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: t.text), maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+Text(fmtStars(g['price']) + ' ★', style: const TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.w700)),
+]),
+),
+);
+},
+),
+),
+TextField(controller: noteCtrl, decoration: const InputDecoration(labelText: 'Подпись к подарку')),
+const SizedBox(height: 8),
+SizedBox(
+width: double.infinity,
+child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
 onPressed: selectedCode == null
 ? null
 : () async {
 try {
-await sb.rpc('send_gift', params: {'p_recipient': recipientId, 'p_gift_code': selectedCode, 'p_note': note.text.trim(), 'p_chat_id': null});
-if (context.mounted) Navigator.pop(context);
+await sb.rpc('send_gift', params: {'p_recipient': recipientId, 'p_gift_code': selectedCode, 'p_note': noteCtrl.text.trim(), 'p_chat_id': null});
+if (context.mounted) Navigator.pop(ctx);
 } catch (e) {
-if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
 }
 },
 child: const Text('Отправить'),

@@ -144,7 +144,7 @@ const XwendLogo({super.key, this.size = 28, required this.accent, this.pulse = t
 @override
 State createState() => XwendLogoState();
 }
-class XwendLogoState extends State with SingleTickerProviderStateMixin {
+class XwendLogoState extends State<XwendLogo> { with SingleTickerProviderStateMixin {
 late final AnimationController anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))..repeat(reverse: true);
 @override
 void dispose() { anim.dispose(); super.dispose(); }
@@ -256,7 +256,7 @@ const AnimatedBackground({super.key, required this.theme, required this.child});
 @override
 State createState() => AnimatedBackgroundState();
 }
-class AnimatedBackgroundState extends State with SingleTickerProviderStateMixin {
+class AnimatedBackgroundState extends State<AnimatedBackground> { with SingleTickerProviderStateMixin {
 late final AnimationController anim = AnimationController(vsync: this, duration: const Duration(seconds: 20))..repeat(reverse: true);
 @override
 void dispose() { anim.dispose(); super.dispose(); }

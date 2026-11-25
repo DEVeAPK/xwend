@@ -2102,197 +2102,203 @@ subtitle: Text('1.0.0 Native • Liquid Glass iOS 26', style: TextStyle(color: t
 ),
 );
 }
-void openTopUp() {
-final t = themeCtl.theme;
-showDialog(
-context: context,
-builder: () => AlertDialog(
-backgroundColor: t.cardSolid,
-shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-title: const Text('Пополнить звёзды'),
-content: Column(mainAxisSize: MainAxisSize.min, children: [
-Text('Укажите @${_profile?['username']} в комментарии к донату', style: TextStyle(fontSize: 12, color: t.muted)),
-const SizedBox(height: 12),
-...AppConfig.donatePackages.map((p) => ListTile(
-title: Text('${fmtStars(p['stars'])} ★', style: TextStyle(color: t.accent, fontWeight: FontWeight.w700)),
-subtitle: Text(p['label']),
-trailing: Text(p['price']),
-onTap: () async {
-final url = Uri.parse('AppConfig.donateUrl?amount={p['stars']}&comment=@\({_profile?['username']}+\){p['stars']}+stars');
-if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
-},
-)),
-]),
-),
-);
+  void _openTopUp() {
+    final t = themeCtl.theme;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: t.cardSolid,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Пополнить звёзды'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Укажите @${_profile?['username']} в комментарии к донату', style: TextStyle(fontSize: 12, color: t.muted)),
+          const SizedBox(height: 12),
+          ...AppConfig.donatePackages.map((p) => ListTile(
+            title: Text('${fmtStars(p['stars'])} ★', style: TextStyle(color: t.accent, fontWeight: FontWeight.w700)),
+            subtitle: Text(p['label']),
+            trailing: Text(p['price']),
+            onTap: () async {
+              final url = Uri.parse('${AppConfig.donateUrl}?amount=${p['stars']}&comment=@${_profile?['username']}+${p['stars']}+stars');
+              if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
+            },
+          )),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = themeCtl.theme;
+    final p = _profile;
+    if (p == null) return Center(child: CircularProgressIndicator(color: t.accent));
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+      physics: const BouncingScrollPhysics(),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        GlassBox(
+          theme: t,
+          blur: true,
+          padding: const EdgeInsets.all(20),
+          radius: BorderRadius.circular(28),
+          child: Column(children: [
+            Stack(children: [
+              AvatarView(name: p['name'], username: p['username'], url: p['avatar_url'], color: p['avatar_color'], size: 88),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: GestureDetector(
+                  onTap: _changeAvatar,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(color: t.accent, shape: BoxShape.circle, border: Border.all(color: t.cardSolid, width: 2)),
+                    child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            Text(p['name'] ?? 'Без имени', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
+            Text('@${p['username'] ?? ''}', style: TextStyle(color: t.accent, fontWeight: FontWeight.w600)),
+            if ((p['bio'] ?? '').toString().isNotEmpty)
+              Padding(padding: const EdgeInsets.only(top: 8), child: Text(p['bio'], style: TextStyle(color: t.muted, fontSize: 13), textAlign: TextAlign.center)),
+            const SizedBox(height: 14),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(color: Colors.amber.withOpacity(0.16), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber.withOpacity(0.45))),
+                child: Text('⭐ ${fmtStars(p['stars'])}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w800)),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
+                onPressed: _openTopUp,
+                child: const Text('Пополнить ★', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                onPressed: () async {
+                  await GiftShopDialog.open(context, recipientId: _sb.auth.currentUser!.id, recipientName: p['name'] ?? 'себе', selfGift: true);
+                  _load();
+                },
+                child: const Text('🎁 Подарить себе ★', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ]),
+        ),
+        if (_gifts.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('Подарки (${_gifts.length})', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 6),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 100, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
+            itemCount: _gifts.length,
+            itemBuilder: (_, i) {
+              final g = _gifts[i];
+              final gift = _catalog.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
+              return GlassBox(
+                theme: t,
+                blur: false,
+                radius: BorderRadius.circular(16),
+                padding: const EdgeInsets.all(6),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(gift['emoji'] ?? '🎁', style: const TextStyle(fontSize: 24)),
+                  const SizedBox(height: 3),
+                  Text(gift['title'] ?? 'Подарок', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: t.text), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+                ]),
+              );
+            },
+          ),
+        ],
+        const SizedBox(height: 12),
+        _row('✏️ Редактировать профиль', _editProfile),
+        _row('🎨 Оформление и темы (Liquid iOS 26)', _openThemeSettings),
+        _row('⚙️ Настройки приложения и приватность', _openExtraSettings),
+        _row('🚪 Выйти из аккаунта', () async {
+          await _sb.auth.signOut();
+        }),
+      ]),
+    );
+  }
+
+  Widget _row(String label, VoidCallback onTap) {
+    final t = themeCtl.theme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 7),
+      child: GlassBox(
+        theme: t,
+        blur: false,
+        radius: BorderRadius.circular(18),
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(label, style: TextStyle(color: t.text, fontSize: 14.5, fontWeight: FontWeight.w600)),
+          trailing: Icon(Icons.chevron_right_rounded, color: t.muted, size: 22),
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
 }
-@override
-Widget build(BuildContext context) {
-final t = themeCtl.theme;
-final p = _profile;
-if (p == null) return Center(child: CircularProgressIndicator(color: t.accent));
-return SingleChildScrollView(
-padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
-physics: const BouncingScrollPhysics(),
-child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-GlassBox(
-theme: t,
-blur: true,
-padding: const EdgeInsets.all(20),
-radius: BorderRadius.circular(28),
-child: Column(children: [
-Stack(children: [
-AvatarView(name: p['name'], username: p['username'], url: p['avatar_url'], color: p['avatar_color'], size: 88),
-Positioned(
-right: 0,
-bottom: 0,
-child: GestureDetector(
-onTap: _changeAvatar,
-child: Container(
-width: 28,
-height: 28,
-decoration: BoxDecoration(color: t.accent, shape: BoxShape.circle, border: Border.all(color: t.cardSolid, width: 2)),
-child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
-),
-),
-),
-]),
-const SizedBox(height: 12),
-Text(p['name'] ?? 'Без имени', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: t.text)),
-Text('@${p['username'] ?? ''}', style: TextStyle(color: t.accent, fontWeight: FontWeight.w600)),
-if ((p['bio'] ?? '').toString().isNotEmpty)
-Padding(padding: const EdgeInsets.only(top: 8), child: Text(p['bio'], style: TextStyle(color: t.muted, fontSize: 13), textAlign: TextAlign.center)),
-const SizedBox(height: 14),
-Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-Container(
-padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-decoration: BoxDecoration(color: Colors.amber.withOpacity(0.16), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.amber.withOpacity(0.45))),
-child: Text('⭐ ${fmtStars(p['stars'])}', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w800)),
-),
-const SizedBox(width: 8),
-FilledButton(
-style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
-onPressed: _openTopUp,
-child: const Text('Пополнить ★', style: TextStyle(fontWeight: FontWeight.w700)),
-),
-]),
-const SizedBox(height: 10),
-SizedBox(
-width: double.infinity,
-child: FilledButton(
-style: FilledButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-onPressed: () async {
-await GiftShopDialog.open(context, recipientId: _sb.auth.currentUser!.id, recipientName: p['name'] ?? 'себе', selfGift: true);
-_load();
-},
-child: const Text('🎁 Подарить себе ★', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
-),
-),
-]),
-),
-if (_gifts.isNotEmpty) ...[
-const SizedBox(height: 14),
-Padding(
-padding: const EdgeInsets.symmetric(horizontal: 4),
-child: Text('Подарки (${_gifts.length})', style: TextStyle(color: t.muted, fontSize: 12, fontWeight: FontWeight.w700)),
-),
-const SizedBox(height: 6),
-GridView.builder(
-shrinkWrap: true,
-physics: const NeverScrollableScrollPhysics(),
-gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 100, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 0.95),
-itemCount: gifts.length,
-itemBuilder: (, i) {
-final g = _gifts[i];
-final gift = _catalog.firstWhere((x) => x['id'] == g['gift_id'], orElse: () => {});
-return GlassBox(
-theme: t,
-blur: false,
-radius: BorderRadius.circular(16),
-padding: const EdgeInsets.all(6),
-child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-Text(gift['emoji'] ?? '🎁', style: const TextStyle(fontSize: 24)),
-const SizedBox(height: 3),
-Text(gift['title'] ?? 'Подарок', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: t.text), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
-]),
-);
-},
-),
-],
-const SizedBox(height: 12),
-_row('✏️ Редактировать профиль', _editProfile),
-_row('🎨 Оформление и темы (Liquid iOS 26)', _openThemeSettings),
-_row('⚙️ Настройки приложения и приватность', _openExtraSettings),
-_row('🚪 Выйти из аккаунта', () async { await _sb.auth.signOut(); }),
-]),
-);
-}
-Widget _row(String label, VoidCallback onTap) {
-final t = themeCtl.theme;
-return Padding(
-padding: const EdgeInsets.only(top: 7),
-child: GlassBox(
-theme: t,
-blur: false,
-radius: BorderRadius.circular(18),
-child: ListTile(
-shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-title: Text(label, style: TextStyle(color: t.text, fontSize: 14.5, fontWeight: FontWeight.w600)),
-trailing: Icon(Icons.chevron_right_rounded, color: t.muted, size: 22),
-onTap: onTap,
-),
-),
-);
-}
-}
+
 class GiftShopDialog {
-static Future open(BuildContext context, {required String recipientId, required String recipientName, bool selfGift = false}) async {
-final sb = Supabase.instance.client;
-final t = themeCtl.theme;
-final catalog = List<Map<String, dynamic>>.from(await sb.from('gifts').select('*').order('sort_order', ascending: true));
-if (!context.mounted) return;
-String? selectedCode;
-final note = TextEditingController();
-showModalBottomSheet(
-context: context,
-isScrollControlled: true,
-backgroundColor: t.cardSolid,
-shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-builder: () => StatefulBuilder(builder: (context, setLocal) {
-return Padding(
-padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
-child: Column(mainAxisSize: MainAxisSize.min, children: [
-Text('Подарок для $recipientName', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: t.text)),
-const SizedBox(height: 12),
-SizedBox(
-height: 320,
-child: GridView.builder(
-gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.4),
-itemCount: catalog.length,
-itemBuilder: (, i) {
-final g = catalog[i];
-final selected = selectedCode == g['code'];
-return GestureDetector(
-onTap: () => setLocal(() => selectedCode = g['code']),
-child: Container(
-padding: const EdgeInsets.all(10),
-decoration: BoxDecoration(color: t.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: selected ? Colors.amber : t.border, width: selected ? 2 : 1)),
-child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-Text(g['emoji'] ?? '🎁', style: const TextStyle(fontSize: 34)),
-const SizedBox(height: 4),
-Text(g['title'] ?? 'Подарок', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: t.text), maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
-Text('${fmtStars(g['price'])} ★', style: const TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.w700)),
-]),
-),
-);
-},
-),
-),
-TextField(controller: note, decoration: const InputDecoration(labelText: 'Подпись к подарку')),
-const SizedBox(height: 8),
-SizedBox(
-width: double.infinity,
-child: FilledButton(
+  static Future<void> open(BuildContext context, {required String recipientId, required String recipientName, bool selfGift = false}) async {
+    final sb = Supabase.instance.client;
+    final t = themeCtl.theme;
+    final catalog = List<Map<String, dynamic>>.from(await sb.from('gifts').select('*').order('sort_order', ascending: true));
+    if (!context.mounted) return;
+    String? selectedCode;
+    final note = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: t.cardSolid,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+      builder: (_) => StatefulBuilder(builder: (context, setLocal) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Подарок для $recipientName', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: t.text)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 320,
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.4),
+                itemCount: catalog.length,
+                itemBuilder: (_, i) {
+                  final g = catalog[i];
+                  final selected = selectedCode == g['code'];
+                  return GestureDetector(
+                    onTap: () => setLocal(() => selectedCode = g['code']),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: t.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: selected ? Colors.amber : t.border, width: selected ? 2 : 1)),
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text(g['emoji'] ?? '🎁', style: const TextStyle(fontSize: 34)),
+                        const SizedBox(height: 4),
+                        Text(g['title'] ?? 'Подарок', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: t.text), maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+                        Text('${fmtStars(g['price'])} ★', style: const TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.w700)),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+            ),
+            TextField(controller: note, decoration: const InputDecoration(labelText: 'Подпись к подарку')),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
 style: FilledButton.styleFrom(backgroundColor: t.accent, padding: const EdgeInsets.symmetric(vertical: 14)),
 onPressed: selectedCode == null
 ? null

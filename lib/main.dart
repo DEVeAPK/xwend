@@ -1300,11 +1300,24 @@ class _ChatScreenState extends State<ChatScreen> {
                         isOut: out,
                         onLong: () => _openMessageMenu(m),
                         onPlayAudio: () async {
-                          if (m['file_url'] != null) {
-                            await _player.stop();
-                            await _player.play(UrlSource(m['file_url']));
-                          }
-                        },
+                       final url = m['file_url']?.toString() ?? '';
+                       if (url.isEmpty) return;
+                       try {
+                         await _player.stop();
+                         if (url.startsWith('http')) {
+                           await _player.play(UrlSource(url));
+                         } else {
+                           await _player.play(DeviceFileSource(url));
+                         }
+                       } catch (e) {
+                         if (mounted) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             SnackBar(content: Text('Не удалось воспроизвести ГС: $e')),
+                           );
+                         }
+                       }
+                     },
+
                       ));
                     },
                   ),

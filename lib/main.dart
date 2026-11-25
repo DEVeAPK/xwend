@@ -1387,9 +1387,9 @@ height: 240,
 child: GridView.builder(
 padding: const EdgeInsets.all(8),
 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8),
-itemCount: emojis.length,
+itemCount: _emojis.length,
 itemBuilder: (_, i) => InkWell(
-onTap: () { _input.text += _emojis[i]; setState(() {}); },
+onTap: () { __input.text += _emojis[i]; setState(() {}); },
 child: Center(child: Text(_emojis[i], style: const TextStyle(fontSize: 24))),
 ),
 ),
@@ -1519,7 +1519,7 @@ const OtherProfileScreen({super.key, required this.userId, required this.user});
 @override
 State createState() => OtherProfileScreenState();
 }
-class OtherProfileScreenState extends State {
+class OtherProfileScreenState extends State<OtherProfileScreen>State {
 final msb = Supabase.instance.client;
 List<Map<String, dynamic>> mgifts = [];
 List<Map<String, dynamic>> mcatalog = [];
@@ -1643,7 +1643,7 @@ const GroupScreen({super.key, required this.chat});
 @override
 State createState() => GroupScreenState();
 }
-class GroupScreenState extends State {
+class GroupScreenState extends State<GroupScreen> {
 final msb = Supabase.instance.client;
 List<Map<String, dynamic>> mmembers = [];
 Map<String, dynamic> mchat = {};
